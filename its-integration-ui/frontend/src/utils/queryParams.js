@@ -10,6 +10,15 @@ export function rowsToQuery(rows) {
   return map;
 }
 
+/** @param {Array<{name:string,example?:string,in?:string}>|undefined} parameters */
+export function paramsToQueryRows(parameters) {
+  const queryParams = (parameters || []).filter((p) => !p.in || p.in === 'query');
+  if (!queryParams.length) {
+    return [{ key: '', value: '' }];
+  }
+  return queryParams.map((p) => ({ key: p.name, value: p.example ?? '' }));
+}
+
 /** @param {Record<string, string>|undefined} query */
 export function queryToRows(query) {
   if (!query || !Object.keys(query).length) {

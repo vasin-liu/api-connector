@@ -1,8 +1,8 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue';
 import QueryParamsEditor from '../components/QueryParamsEditor.vue';
-import { getConnector, listConnectorEndpoints, trialProxy } from '../api/http';
-import { rowsToQuery } from '../utils/queryParams';
+import { getConnector, getConsoleInfo, listConnectorEndpoints, trialProxy } from '../api/http';
+import { paramsToQueryRows, rowsToQuery } from '../utils/queryParams';
 
 const props = defineProps({ code3rd: { type: String, required: true } });
 
@@ -11,6 +11,7 @@ const path = ref('/get');
 const method = ref('GET');
 const bodyText = ref('');
 const queryRows = ref([{ key: '', value: '' }]);
+const paramHints = ref([]);
 const result = ref(null);
 const error = ref('');
 const loading = ref(false);
@@ -42,6 +43,12 @@ function applyEndpoint(id) {
     path.value = ep.path || '/';
     method.value = ep.method || 'GET';
     useCustomPath.value = false;
+    queryRows.value = paramsToQueryRows(ep.parameters);
+    paramHints.value = ep.parameters || [];
+    const bodyParam = (ep.parameters || []).find((p) => p.in === 'body' && p.example);
+    if (bodyParam?.example) {
+      bodyText.value = bodyParam.example;
+    }
   }
 }
 
@@ -125,6 +132,14 @@ watch(() => props.code3rd, loadEndpoints);
     </div>
 
     <QueryParamsEditor v-model="queryRows" />
+    <ul v-if="paramHints.length" class="param-hints">
+      <li v-for="p in paramHints" :key="p.name">
+        <code>{{ p.name }}</code>
+        <span v-if="p.required" class="tag">必填</span>
+        <span v-if="p.in && p.in !== 'query'" class="tag">{{ p.in }}</span>
+        {{ p.description || '' }}
+      </li>
+    </ul>
 
     <label class="full" style="display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.75rem">
       body（JSON 字符串，POST 等场景）

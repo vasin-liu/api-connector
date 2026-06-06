@@ -4,6 +4,7 @@
 package com.suntek.integration.api.controller;
 
 import com.suntek.integration.api.dto.ConnectorEndpointSummary;
+import com.suntek.integration.api.dto.EndpointParamSummary;
 import com.suntek.integration.api.dto.EndpointInvokeRequest;
 import com.suntek.integration.api.dto.ProxyInvokeRequest;
 import com.suntek.integration.api.dto.ProxyInvokeResponse;
@@ -83,6 +84,7 @@ public class IntegrationProxyController {
                     .group(EndpointOpenApiMetadataResolver.resolveGroup(endpoint))
                     .enabled(true)
                     .invokeUrl("/api/v1/integrations/" + code3rd + "/endpoints/" + endpoint.id() + "/invoke")
+                    .parameters(EndpointOpenApiMetadataResolver.resolveParameters(endpoint))
                     .build());
         }
         return list;

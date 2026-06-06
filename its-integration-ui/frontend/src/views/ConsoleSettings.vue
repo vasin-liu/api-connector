@@ -1,9 +1,23 @@
 <script setup>
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
+import { getConsoleInfo } from '../api/http';
 import { loadClientSettings, saveClientSettings } from '../clientSettings';
 
 const form = ref(loadClientSettings());
 const message = ref('');
+const consoleInfo = ref(null);
+const infoError = ref('');
+
+onMounted(async () => {
+  try {
+    consoleInfo.value = await getConsoleInfo();
+    if (consoleInfo.value?.apiKeyHeader && !form.value.apiKeyHeader) {
+      form.value.apiKeyHeader = consoleInfo.value.apiKeyHeader;
+    }
+  } catch (e) {
+    infoError.value = e.message;
+  }
+});
 
 function save() {
   saveClientSettings(form.value);
@@ -14,6 +28,14 @@ function save() {
 <template>
   <section class="panel">
     <h1>控制台设置</h1>
+    <p v-if="consoleInfo" class="hint">
+      服务端鉴权：
+      <strong>{{ consoleInfo.securityEnabled ? '已开启' : '未开启' }}</strong>
+      · Header：<code>{{ consoleInfo.apiKeyHeader }}</code>
+    </p>
+    <p v-else-if="infoError" class="hint">
+      无法读取服务端鉴权状态（{{ infoError }}）。若已开启 API Key，请先填写 Admin Key 后刷新本页。
+    </p>
     <p class="hint">
       当服务端开启 <code>integration.security.enabled=true</code> 时，需在请求头携带 API Key。
       Admin API 与 Runtime API 可使用不同密钥。

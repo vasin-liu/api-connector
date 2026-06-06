@@ -3,9 +3,12 @@
  */
 package com.suntek.integration.api.dto;
 
+import com.suntek.integration.api.dto.EndpointParamSummary;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
+
+import java.util.List;
 
 /**
  * Connector Spec 端点目录项（OpenAPI / 控制台试调）。
@@ -37,4 +40,7 @@ public class ConnectorEndpointSummary {
             description = "推荐调用 URL（平台侧）",
             example = "/api/v1/integrations/IDPS/endpoints/roadSpeeds/invoke")
     private String invokeUrl;
+
+    @Schema(description = "试调参数说明（来自 Catalog doc）")
+    private List<EndpointParamSummary> parameters;
 }

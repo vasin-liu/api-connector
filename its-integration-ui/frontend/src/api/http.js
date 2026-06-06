@@ -110,6 +110,10 @@ export function listProfiles() {
   return apiFetch('/profiles');
 }
 
+export function getConsoleInfo() {
+  return apiFetch('/console-info');
+}
+
 export function getProfile(profileId) {
   return apiFetch(`/profiles/${encodeURIComponent(profileId)}`);
 }

@@ -3,14 +3,17 @@
  */
 package com.suntek.integration.api.openapi;
 
+import com.suntek.integration.api.dto.EndpointParamSummary;
 import com.suntek.integration.spec.catalog.EndpointDocumentation;
 import com.suntek.integration.spec.model.ConnectorSpec;
 import com.suntek.integration.spec.model.EndpointDocSpec;
 import com.suntek.integration.spec.model.EndpointParamSpec;
 import com.suntek.integration.spec.model.EndpointSpec;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -78,19 +81,11 @@ public final class EndpointOpenApiMetadataResolver {
         EndpointDocSpec doc = docOf(endpoint);
         Map<String, String> query = new LinkedHashMap<>();
         Map<String, String> headers = new LinkedHashMap<>();
-        String body = endpoint.bodyTemplate();
+        String[] bodyHolder = {endpoint.bodyTemplate()};
         for (EndpointParamSpec param : doc.parameters()) {
-            if (param.name() == null || param.name().isBlank()) {
-                continue;
-            }
-            String in = param.in() == null ? "query" : param.in().toLowerCase(Locale.ROOT);
-            String value = param.example() != null ? param.example() : "";
-            switch (in) {
-                case "header" -> headers.put(param.name(), value);
-                case "body" -> body = value;
-                default -> query.put(param.name(), value);
-            }
+            applyParamExample(param, query, headers, value -> bodyHolder[0] = value);
         }
+        String body = bodyHolder[0];
         Map<String, Object> example = new LinkedHashMap<>();
         if (!query.isEmpty()) {
             example.put("query", query);
@@ -102,6 +97,41 @@ public final class EndpointOpenApiMetadataResolver {
             example.put("body", body);
         }
         return example;
+    }
+
+    public static List<EndpointParamSummary> resolveParameters(EndpointSpec endpoint) {
+        EndpointDocSpec doc = docOf(endpoint);
+        List<EndpointParamSummary> list = new ArrayList<>();
+        for (EndpointParamSpec param : doc.parameters()) {
+            if (param.name() == null || param.name().isBlank()) {
+                continue;
+            }
+            list.add(EndpointParamSummary.builder()
+                    .name(param.name())
+                    .description(param.description())
+                    .required(param.required())
+                    .example(param.example())
+                    .in(param.in() == null ? "query" : param.in().toLowerCase(Locale.ROOT))
+                    .build());
+        }
+        return list;
+    }
+
+    private static void applyParamExample(
+            EndpointParamSpec param,
+            Map<String, String> query,
+            Map<String, String> headers,
+            java.util.function.Consumer<String> bodySetter) {
+        if (param.name() == null || param.name().isBlank()) {
+            return;
+        }
+        String in = param.in() == null ? "query" : param.in().toLowerCase(Locale.ROOT);
+        String value = param.example() != null ? param.example() : "";
+        switch (in) {
+            case "header" -> headers.put(param.name(), value);
+            case "body" -> bodySetter.accept(value);
+            default -> query.put(param.name(), value);
+        }
     }
 
     public static Set<String> collectSubgroupTags(ConnectorSpec spec) {

@@ -37,6 +37,7 @@ onMounted(async () => {
           <th>说明</th>
           <th>方法</th>
           <th>Path</th>
+          <th>Query 参数</th>
         </tr>
       </thead>
       <tbody>
@@ -46,6 +47,10 @@ onMounted(async () => {
           <td>{{ ep.summary || '—' }}</td>
           <td>{{ ep.method }}</td>
           <td><code>{{ ep.path }}</code></td>
+          <td>
+            <span v-if="!ep.parameters?.length">—</span>
+            <span v-else>{{ ep.parameters.filter((p) => !p.in || p.in === 'query').map((p) => p.name).join(', ') }}</span>
+          </td>
         </tr>
       </tbody>
     </table>

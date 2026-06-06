@@ -72,8 +72,8 @@ its-integration-app.jar (repackage)
 |------|------|------|
 | 连接器列表 | `/console/connectors` | 列表、从库刷新、删除（非 Catalog）、试调入口 |
 | 编辑向导 | `/console/connectors/{code3rd}` | 基础/认证/端点；Catalog 连接器展示只读端点目录 |
-| 试调 | `/console/trial/{code3rd}` | endpointId、**Query 参数表**、body、自定义 path |
-| 设置 | `/console/settings` | **Admin/Runtime API Key**（localStorage，对应 `X-Integration-Api-Key`） |
+| 试调 | `/console/trial/{code3rd}` | endpointId、**Query 参数表**（选端点后按 Catalog 预填）、body、自定义 path |
+| 设置 | `/console/settings` | **Admin/Runtime API Key**；读取 `/api/v1/admin/console-info` 显示鉴权开关 |
 
 开启 `integration.security.enabled=true` 时，请先在「设置」页填写 Admin API Key。
 
