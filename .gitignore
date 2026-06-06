@@ -1,0 +1,19 @@
+target/
+.flattened-pom.xml
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+*.log
+
+# Frontend / Node
+node_modules/
+**/frontend/dist/
+**/target/node/
+
+# Runtime data
+data/
+
+# Local tooling
+.codegraph/

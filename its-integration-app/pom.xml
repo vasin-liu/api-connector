@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.suntek.integration</groupId>
+        <artifactId>its-integration-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../its-integration-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>its-integration-app</artifactId>
+    <name>${project.artifactId}</name>
+    <description>可运行应用 — Spring Boot 启动入口</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.suntek.integration</groupId>
+            <artifactId>its-integration-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-json</artifactId>
+        </dependency>
+        <!-- 静态控制台：打入 fat JAR，与 API 同端口 -->
+        <dependency>
+            <groupId>com.suntek.integration</groupId>
+            <artifactId>its-integration-ui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.suntek.integration</groupId>
+            <artifactId>its-integration-persistence</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.suntek.integration</groupId>
+            <artifactId>its-integration-connectors</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <version>3.13.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 将 ui 模块 static/** 解压到 app/target/classes，并打入 fat JAR 的 BOOT-INF/classes -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>unpack-ui-static</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeGroupIds>com.suntek.integration</includeGroupIds>
+                            <includeArtifactIds>its-integration-ui</includeArtifactIds>
+                            <includes>static/**</includes>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- 静态资源已解压到 BOOT-INF/classes/static，无需再嵌套 ui JAR -->
+                    <excludes>
+                        <exclude>
+                            <groupId>com.suntek.integration</groupId>
+                            <artifactId>its-integration-ui</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

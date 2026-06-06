@@ -1,0 +1,14 @@
+{
+  "profileId": "none",
+  "level": "L1",
+  "displayName": "无认证",
+  "description": "不附加认证头或签名",
+  "credentialSlots": [],
+  "paramSchema": {
+    "type": "object",
+    "properties": {}
+  },
+  "specFragmentExample": {
+    "type": "none"
+  }
+}

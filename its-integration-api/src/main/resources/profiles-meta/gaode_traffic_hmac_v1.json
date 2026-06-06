@@ -1,0 +1,22 @@
+{
+  "profileId": "gaode_traffic_hmac_v1",
+  "level": "L2",
+  "displayName": "高德交通 HMAC",
+  "description": "clientKey + timestamp + digest（HMAC-SHA256）",
+  "credentialSlots": [
+    { "key": "publicKey", "label": "clientKey", "secret": false, "required": true },
+    { "key": "appSecret", "label": "签名密钥", "secret": true, "required": true }
+  ],
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "clientKeyRef": { "type": "string", "default": "publicKey" },
+      "secretKeyRef": { "type": "string", "default": "appSecret" }
+    }
+  },
+  "specFragmentExample": {
+    "type": "gaode_traffic_hmac_v1",
+    "clientKeyRef": "publicKey",
+    "secretKeyRef": "appSecret"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "profileId": "bearer_static",
+  "level": "L1",
+  "displayName": "静态 Bearer",
+  "description": "固定 Token 放入 Authorization 头",
+  "credentialSlots": [
+    { "key": "appSecret", "label": "Token", "secret": true, "required": true }
+  ],
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "tokenRef": { "type": "string", "default": "appSecret" },
+      "headerName": { "type": "string", "default": "Authorization" },
+      "prefix": { "type": "string", "default": "Bearer " }
+    }
+  },
+  "specFragmentExample": { "type": "bearer_static", "tokenRef": "appSecret" }
+}

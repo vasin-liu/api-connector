@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.suntek.integration</groupId>
+        <artifactId>its-integration-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../its-integration-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>its-integration-domain</artifactId>
+    <name>${project.artifactId}</name>
+    <description>领域模型 — 与框架无关的请求/响应/连接器标识</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>

@@ -1,0 +1,7 @@
+# 生产示例：启用 API Key 鉴权（部署时通过环境变量或密钥管理注入密钥，勿提交明文）
+integration:
+  security:
+    enabled: true
+  invoke:
+    audit-enabled: true
+    rate-limit-per-code3rd-per-minute: 120

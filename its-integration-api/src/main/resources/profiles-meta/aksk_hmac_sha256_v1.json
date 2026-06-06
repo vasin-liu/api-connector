@@ -1,0 +1,22 @@
+{
+  "profileId": "aksk_hmac_sha256_v1",
+  "level": "L1",
+  "displayName": "AK/SK 规范串 (HMAC-SHA256)",
+  "description": "IDPS / Traffic 大脑 canonical 签名；Access Key 映射 publicKey，Secret 映射 appSecret",
+  "credentialSlots": [
+    { "ref": "publicKey", "label": "Access Key", "required": true, "masked": false },
+    { "ref": "appSecret", "label": "Secret Key", "required": true, "masked": true }
+  ],
+  "paramSchema": {
+    "type": "object",
+    "properties": {
+      "accessKeyRef": { "type": "string", "default": "publicKey", "ui:hidden": true },
+      "secretKeyRef": { "type": "string", "default": "appSecret", "ui:hidden": true }
+    }
+  },
+  "specFragmentExample": {
+    "type": "aksk_hmac_sha256_v1",
+    "accessKeyRef": "publicKey",
+    "secretKeyRef": "appSecret"
+  }
+}

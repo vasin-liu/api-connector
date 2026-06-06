@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.suntek.integration</groupId>
+        <artifactId>its-integration-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../its-integration-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>its-integration-persistence</artifactId>
+    <name>${project.artifactId}</name>
+    <description>配置持久化 — 独立内嵌库 / 外接 JDBC</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.suntek.integration</groupId>
+            <artifactId>its-integration-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.suntek.integration</groupId>
+            <artifactId>its-integration-spec</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.suntek.integration</groupId>
+            <artifactId>its-integration-connectors</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
