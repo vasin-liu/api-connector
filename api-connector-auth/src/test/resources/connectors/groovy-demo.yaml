@@ -1,0 +1,14 @@
+code3rd: GROOVY_DEMO
+version: "1.0.0"
+baseUrl: https://vendor.example.com
+protocol: HTTP
+auth:
+  type: groovy_auth_script
+  script: |
+    import com.suntek.apiconnector.auth.context.AuthOutcome
+    new AuthOutcome([Authorization: 'Bearer test-token'], [:], null)
+endpoints:
+  - id: invoke
+    method: GET
+    path: /api/demo
+    enabled: true
