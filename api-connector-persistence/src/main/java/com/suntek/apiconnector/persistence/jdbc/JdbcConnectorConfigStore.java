@@ -19,7 +19,6 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.PreparedStatement;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collections;
@@ -145,7 +144,7 @@ public class JdbcConnectorConfigStore implements ConnectorConfigStore {
                     "INSERT INTO IT_CONNECTOR_CLIENT "
                             + "(CODE3RD, SCOPE, NAME3RD, HOST3RD, PROTOCOL, APP_ID, APP_SECRET, PUBLIC_KEY, STATUS) "
                             + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ENABLED')",
-                    Statement.RETURN_GENERATED_KEYS);
+                    new String[] {"ID"});
             ps.setString(1, code3rd);
             ps.setString(2, scope);
             ps.setString(3, code3rd);
