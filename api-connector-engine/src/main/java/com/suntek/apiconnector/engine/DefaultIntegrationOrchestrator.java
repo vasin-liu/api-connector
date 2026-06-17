@@ -7,6 +7,7 @@ package com.suntek.apiconnector.engine;
 
 import com.suntek.apiconnector.auth.AuthEngine;
 import com.suntek.apiconnector.auth.context.AuthContext;
+import com.suntek.apiconnector.domain.model.AuthContextSnapshot;
 import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.domain.model.InvocationRequest;
 import com.suntek.apiconnector.domain.model.InvocationResult;
@@ -17,8 +18,10 @@ import com.suntek.apiconnector.engine.transport.HttpTransport;
 import com.suntek.apiconnector.engine.transport.HttpTransportRequest;
 import com.suntek.apiconnector.engine.transport.HttpTransportResponse;
 import com.suntek.apiconnector.spec.model.ConnectorSpec;
+import com.suntek.apiconnector.spec.model.EndpointSpec;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -63,38 +66,28 @@ public class DefaultIntegrationOrchestrator implements IntegrationOrchestrator {
         ConnectorSpec spec = registry.require(request.connectorCode().value());
         Map<String, String> credentials = registry.credentials(request.connectorCode().value());
 
-        AuthContext authContext = new AuthContext(
-                request.connectorCode().value(),
-                spec.baseUrl(),
+        EndpointResolver.ResolvedInvocation resolved = EndpointResolver.resolve(
+                spec,
+                request.endpointId(),
                 request.method().name(),
-                request.path(),
-                request.query() != null ? request.query() : Map.of(),
-                request.body(),
-                spec.auth(),
-                credentials,
-                Map.of());
-        AuthOutcome authOutcome = authEngine.authenticate(authContext);
+                request.path());
+        EndpointSpec endpointSpec = EndpointResolver.endpoint(spec, request.endpointId());
+        AuthenticatedInvocation auth = authenticate(
+                spec, resolved, endpointSpec, credentials, request.query(), request.body());
 
         Map<String, String> headers = new HashMap<>();
         if (request.headers() != null) {
             headers.putAll(request.headers());
         }
-        headers.putAll(authOutcome.headers());
+        headers.putAll(auth.headers());
 
-        Map<String, String> query = new HashMap<>();
-        if (request.query() != null) {
-            query.putAll(request.query());
-        }
-        query.putAll(authOutcome.query());
-
-        String body = authOutcome.mutatedBody() != null ? authOutcome.mutatedBody() : request.body();
         HttpTransportResponse httpResp = httpTransport.exchange(new HttpTransportRequest(
                 spec.baseUrl(),
-                request.method().name(),
-                request.path(),
-                query,
-                headers,
-                body,
+                resolved.method(),
+                resolved.path(),
+                auth.query(),
+                auth.headers(),
+                auth.body(),
                 spec.transport()));
 
         ResponseEvaluation evaluation = responseEvaluator.evaluate(spec.response(), httpResp.body());
@@ -107,13 +100,22 @@ public class DefaultIntegrationOrchestrator implements IntegrationOrchestrator {
                 httpResp.bodyEncoding(),
                 evaluation.parsedData(),
                 System.currentTimeMillis() - start,
-                httpResp.headers());
+                httpResp.headers(),
+                auth.snapshot(),
+                auth.outcome());
     }
 
     @Override
     public void invokeStream(InvocationRequest request, StreamingInvocationSink sink) {
         ConnectorSpec spec = registry.require(request.connectorCode().value());
         Map<String, String> credentials = registry.credentials(request.connectorCode().value());
+
+        EndpointResolver.ResolvedInvocation resolved = EndpointResolver.resolve(
+                spec,
+                request.endpointId(),
+                request.method().name(),
+                request.path());
+        EndpointSpec endpointSpec = EndpointResolver.endpoint(spec, request.endpointId());
 
         Map<String, String> headers = new HashMap<>();
         if (request.headers() != null) {
@@ -123,35 +125,19 @@ public class DefaultIntegrationOrchestrator implements IntegrationOrchestrator {
             headers.put("Accept", "text/event-stream");
         }
 
-        AuthContext authContext = new AuthContext(
-                request.connectorCode().value(),
-                spec.baseUrl(),
-                request.method().name(),
-                request.path(),
-                request.query() != null ? request.query() : Map.of(),
-                request.body(),
-                spec.auth(),
-                credentials,
-                Map.of());
-        AuthOutcome authOutcome = authEngine.authenticate(authContext);
-        headers.putAll(authOutcome.headers());
+        AuthenticatedInvocation auth = authenticate(
+                spec, resolved, endpointSpec, credentials, request.query(), request.body());
+        headers.putAll(auth.headers());
 
-        Map<String, String> query = new HashMap<>();
-        if (request.query() != null) {
-            query.putAll(request.query());
-        }
-        query.putAll(authOutcome.query());
-
-        String body = authOutcome.mutatedBody() != null ? authOutcome.mutatedBody() : request.body();
         try {
             httpTransport.exchangeStream(
                     new HttpTransportRequest(
                             spec.baseUrl(),
-                            request.method().name(),
-                            request.path(),
-                            query,
+                            resolved.method(),
+                            resolved.path(),
+                            auth.query(),
                             headers,
-                            body,
+                            auth.body(),
                             spec.transport()),
                     new HttpStreamHandler() {
                         private boolean headersSent;
@@ -173,5 +159,49 @@ public class DefaultIntegrationOrchestrator implements IntegrationOrchestrator {
             sink.fail(e);
             throw e;
         }
+    }
+
+    private AuthenticatedInvocation authenticate(
+            ConnectorSpec spec,
+            EndpointResolver.ResolvedInvocation resolved,
+            EndpointSpec endpointSpec,
+            Map<String, String> credentials,
+            Map<String, String> requestQuery,
+            String requestBody) {
+        Map<String, Object> authConfig = AuthConfigResolver.resolve(spec, endpointSpec);
+        Map<String, Object> ext = new HashMap<>();
+        AuthContext authContext = new AuthContext(
+                spec.code3rd(),
+                spec.baseUrl(),
+                resolved.method(),
+                resolved.path(),
+                requestQuery != null ? requestQuery : Map.of(),
+                requestBody,
+                authConfig,
+                credentials,
+                ext);
+        AuthOutcome authOutcome = authEngine.authenticate(authContext);
+        List<String> profileTypes = AuthContextSnapshots.profileTypesFrom(authConfig);
+        AuthContextSnapshot snapshot = AuthContextSnapshots.from(authContext, authOutcome, profileTypes);
+
+        Map<String, String> headers = new HashMap<>();
+        headers.putAll(authOutcome.headers());
+
+        Map<String, String> query = new HashMap<>();
+        if (requestQuery != null) {
+            query.putAll(requestQuery);
+        }
+        query.putAll(authOutcome.query());
+
+        String body = authOutcome.mutatedBody() != null ? authOutcome.mutatedBody() : requestBody;
+        return new AuthenticatedInvocation(snapshot, authOutcome, headers, query, body);
+    }
+
+    private record AuthenticatedInvocation(
+            AuthContextSnapshot snapshot,
+            AuthOutcome outcome,
+            Map<String, String> headers,
+            Map<String, String> query,
+            String body) {
     }
 }
