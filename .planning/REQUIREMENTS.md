@@ -10,8 +10,8 @@
 - [ ] **AUTH-01**: Operator can register a Java built-in auth profile on a connector endpoint (covering all auth types used by legacy system-thirdpart vendors)
 - [ ] **AUTH-02**: Operator can attach a Groovy auth script to a connector endpoint for non-standard outbound authentication flows
 - [ ] **AUTH-03**: System compiles and caches Groovy auth scripts on publish (no per-request recompilation)
-- [ ] **AUTH-04**: AuthEngine produces an immutable AuthContext (tokens, signatures, headers) consumable by mapping and HTTP transport steps
-- [ ] **AUTH-05**: AuthContext is available to Groovy mapping scripts for the same invoke pipeline
+- [x] **AUTH-04**: AuthEngine produces an immutable AuthContext (tokens, signatures, headers) consumable by mapping and HTTP transport steps
+- [x] **AUTH-05**: AuthContext is available to Groovy mapping scripts for the same invoke pipeline
 - [ ] **AUTH-06**: System fails invoke with structured error when auth profile/script is missing or misconfigured
 
 ### Data Mapping (MAP)
@@ -111,8 +111,8 @@
 | AUTH-01 | Phase 1 | Pending |
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-03 | Phase 1 | Pending |
-| AUTH-04 | Phase 1 | Pending |
-| AUTH-05 | Phase 1 | Pending |
+| AUTH-04 | Phase 1 | Complete |
+| AUTH-05 | Phase 1 | Complete |
 | AUTH-06 | Phase 1 | Pending |
 | MAP-01 | Phase 2 | Pending |
 | MAP-02 | Phase 2 | Pending |
@@ -154,6 +154,7 @@
 | MIG-05 | Phase 8 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 44 total
 - Mapped to phases: 44
 - Unmapped: 0 ✓
