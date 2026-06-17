@@ -17,6 +17,7 @@ import com.suntek.apiconnector.auth.profile.OAuth2ClientCredentialsAuthProvider;
 import com.suntek.apiconnector.auth.profile.OAuth2TokenInQueryAuthProvider;
 import com.suntek.apiconnector.auth.spi.AuthProvider;
 import com.suntek.apiconnector.domain.spi.IntegrationOrchestrator;
+import com.suntek.apiconnector.engine.ConnectorPublishListener;
 import com.suntek.apiconnector.engine.ConnectorRegistry;
 import com.suntek.apiconnector.engine.DefaultIntegrationOrchestrator;
 import com.suntek.apiconnector.engine.ResponseEvaluator;
@@ -44,8 +45,14 @@ public class IntegrationEngineConfiguration {
      * @return 注册表
      */
     @Bean
-    public ConnectorRegistry connectorRegistry() {
-        return new ConnectorRegistry();
+    public ConnectorPublishListener connectorPublishListener(
+            ScriptCompileService scriptCompileService, TokenCache tokenCache) {
+        return new ConnectorPublishListener(scriptCompileService, tokenCache);
+    }
+
+    @Bean
+    public ConnectorRegistry connectorRegistry(ConnectorPublishListener connectorPublishListener) {
+        return new ConnectorRegistry(connectorPublishListener);
     }
 
     /**

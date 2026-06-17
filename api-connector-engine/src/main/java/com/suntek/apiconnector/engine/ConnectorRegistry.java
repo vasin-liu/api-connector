@@ -24,9 +24,18 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ConnectorRegistry {
 
+    private final ConnectorPublishListener publishListener;
     private final Map<String, ConnectorSpec> specs = new ConcurrentHashMap<>();
     private final Map<String, Map<String, String>> credentials = new ConcurrentHashMap<>();
     private final Map<String, ConnectorSpecStatus> statuses = new ConcurrentHashMap<>();
+
+    public ConnectorRegistry() {
+        this(null);
+    }
+
+    public ConnectorRegistry(ConnectorPublishListener publishListener) {
+        this.publishListener = publishListener;
+    }
 
     /**
      * 注册连接器规格与凭证（已发布）。
@@ -50,6 +59,7 @@ public class ConnectorRegistry {
         specs.put(code3rd, spec);
         mergeCredentials(code3rd, credentialPatch);
         statuses.put(code3rd, status);
+        notifyPublish(spec);
     }
 
     /**
@@ -127,5 +137,11 @@ public class ConnectorRegistry {
                 target.put(key, value);
             }
         });
+    }
+
+    private void notifyPublish(ConnectorSpec spec) {
+        if (publishListener != null) {
+            publishListener.onPublish(spec);
+        }
     }
 }
