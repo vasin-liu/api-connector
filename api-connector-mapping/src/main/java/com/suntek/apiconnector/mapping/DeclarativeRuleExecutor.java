@@ -64,13 +64,13 @@ public final class DeclarativeRuleExecutor {
         if (value == null) {
             return;
         }
-        ctx.set(target, value);
+        writeValue(ctx, target, value);
         deleteLenient(ctx, source);
     }
 
     private static void applySet(DocumentContext ctx, MappingRule rule) {
         String target = PathNormalizer.normalize(rule.target());
-        ctx.set(target, rule.value());
+        writeValue(ctx, target, rule.value());
     }
 
     private static void applyCoerce(DocumentContext ctx, MappingRule rule) {
@@ -81,7 +81,7 @@ public final class DeclarativeRuleExecutor {
             return;
         }
         Object coerced = CoerceHelper.coerce(value, rule.type(), source);
-        ctx.set(target, coerced);
+        writeValue(ctx, target, coerced);
     }
 
     private static void applyNest(DocumentContext ctx, MappingRule rule) {
@@ -91,8 +91,7 @@ public final class DeclarativeRuleExecutor {
         if (value == null) {
             return;
         }
-        ensureParentObjects(ctx, target);
-        ctx.set(target, value);
+        writeValue(ctx, target, value);
     }
 
     private static Object readLenient(DocumentContext ctx, String path) {
@@ -111,6 +110,26 @@ public final class DeclarativeRuleExecutor {
         }
     }
 
+    private static void writeValue(DocumentContext ctx, String targetPath, Object value) {
+        String normalized = PathNormalizer.normalize(targetPath);
+        if (!normalized.startsWith("$.")) {
+            throw new IllegalArgumentException("Target path must be under root: " + targetPath);
+        }
+        String remainder = normalized.substring(2);
+        if (remainder.isEmpty()) {
+            throw new IllegalArgumentException("Target path must name a field: " + targetPath);
+        }
+        int lastDot = remainder.lastIndexOf('.');
+        if (lastDot < 0) {
+            ctx.put("$", remainder, value);
+            return;
+        }
+        String parentPath = "$." + remainder.substring(0, lastDot);
+        String leafKey = remainder.substring(lastDot + 1);
+        ensureParentObjects(ctx, normalized);
+        ctx.put(parentPath, leafKey, value);
+    }
+
     private static void ensureParentObjects(DocumentContext ctx, String targetPath) {
         String normalized = PathNormalizer.normalize(targetPath);
         if (!normalized.startsWith("$.")) {
@@ -126,11 +145,13 @@ public final class DeclarativeRuleExecutor {
         }
         StringBuilder current = new StringBuilder("$");
         for (int i = 0; i < segments.length - 1; i++) {
-            current.append('.').append(segments[i]);
             String parentPath = current.toString();
-            Object existing = readLenient(ctx, parentPath);
+            String segment = segments[i];
+            current.append('.').append(segment);
+            String fullPath = current.toString();
+            Object existing = readLenient(ctx, fullPath);
             if (!(existing instanceof Map<?, ?>)) {
-                ctx.set(parentPath, new LinkedHashMap<String, Object>());
+                ctx.put(parentPath, segment, new LinkedHashMap<String, Object>());
             }
         }
     }
