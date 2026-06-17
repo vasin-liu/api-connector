@@ -8,7 +8,7 @@
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 1 | Auth Plugin Architecture | 2/6 | In Progress|  |
+| 1 | Auth Plugin Architecture | 3/6 | In Progress|  |
 | 2 | Data Mapping Engine | Declarative + scriptable request/response/error mapping | MAP-01..05, MAP-07 | 6 |
 | 3 | Orchestrator Pipeline | Wire auth + mapping into unified and legacy invoke paths | MAP-06, PIPE-01..04 | 5 |
 | 4 | Admin BFF & Gateway Metadata | Config APIs, publish flow, gateway route export | ADMIN-01..05, GW-01..03 | 8 |
@@ -36,7 +36,7 @@
 5. Integration test: OAuth/HMAC vendor issues correctly signed outbound request
 6. Legacy-used auth types inventory documented from system-thirdpart audit
 
-**Plans:** 2/6 plans executed
+**Plans:** 3/6 plans executed
 
 | Wave | Plans | What it builds |
 |------|-------|----------------|
