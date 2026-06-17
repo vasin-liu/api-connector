@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 02
-status: Ready to execute
-last_updated: "2026-06-17T13:30:00.000Z"
+status: Phase complete
+last_updated: "2026-06-18T00:20:00.000Z"
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 7
-  percent: 15
+  completed_plans: 12
+  percent: 25
 ---
 
 # State: API Connector
@@ -30,8 +30,8 @@ See: `.planning/PROJECT.md` (updated 2026-06-17)
 
 | Phase | Name | Status | Plans |
 |-------|------|--------|-------|
-| 1 | Auth Plugin Architecture | ◑ Planned | 0/6 |
-| 2 | Data Mapping Engine | ◑ In Progress | 1/6 |
+| 1 | Auth Plugin Architecture | ● Complete | 6/6 |
+| 2 | Data Mapping Engine | ● Complete | 6/6 |
 | 3 | Orchestrator Pipeline Integration | ○ Pending | 0/0 |
 | 4 | Admin BFF & Gateway Metadata | ○ Pending | 0/0 |
 | 5 | React Console & Observability | ○ Pending | 0/0 |
@@ -50,6 +50,8 @@ See: `.planning/PROJECT.md` (updated 2026-06-17)
 | 2026-06-17 | Java auth plugins + Groovy scripts | Standard + legacy flexibility |
 | 2026-06-17 | React + Ant Design replaces Vue | Team stack mandate |
 | 2026-06-17 | mappingOverride is full MappingSpec block per endpoint | Mirrors authOverride; per-direction override resolved in 02-03 |
+| 2026-06-18 | Transform pipeline is a distinct bean stage; orchestrator wires order in Phase 3 | ADR-002 D-20/D-21; prevents accidental crypto/auth reorder (MAP-06) |
+| 2026-06-18 | SM4 transform resolves key via keyRef credential, never inline | Pitfall 6 — no secrets in spec/DB/logs |
 
 ## Blockers
 
@@ -61,6 +63,7 @@ See: `.planning/PROJECT.md` (updated 2026-06-17)
 - Research complete: `.planning/research/SUMMARY.md`
 - Old module reference: `D:\Work\99_Code\ITS\suntek-system\system-thirdpart` (read-only for contract capture, no code reuse)
 - Phase 2 plan 02-01 complete: mapping spec foundation (`.planning/phases/02-data-mapping-engine/02-01-SUMMARY.md`)
+- Phase 2 complete (02-06): TransformStep SPI + SM4 + JDBC publish reload (`.planning/phases/02-data-mapping-engine/02-06-SUMMARY.md`)
 
 ---
 

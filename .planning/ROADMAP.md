@@ -9,7 +9,7 @@
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
 | 1 | Auth Plugin Architecture | 6/6 | Complete   | 2026-06-17 |
-| 2 | Data Mapping Engine | Declarative + scriptable request/response/error mapping | MAP-01..05, MAP-07 | 6 |
+| 2 | Data Mapping Engine | 6/6 | Complete | 2026-06-18 |
 | 3 | Orchestrator Pipeline | Wire auth + mapping into unified and legacy invoke paths | MAP-06, PIPE-01..04 | 5 |
 | 4 | Admin BFF & Gateway Metadata | Config APIs, publish flow, gateway route export | ADMIN-01..05, GW-01..03 | 8 |
 | 5 | React Console & Observability | Replace Vue UI; logs, metrics, health screens | UI-01..06, MON-01..04 | 10 |
@@ -65,7 +65,7 @@
 5. Passthrough endpoints skip mapping with zero overhead path
 6. Mapping spec validates on admin save (invalid path/transform rejected)
 
-**Plans:** 6 plans
+**Plans:** 6/6 plans complete (2026-06-18)
 
 | Wave | Plans | What it builds |
 |------|-------|----------------|
