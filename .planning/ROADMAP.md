@@ -8,7 +8,7 @@
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 1 | Auth Plugin Architecture | Pluggable outbound auth with Groovy extension | AUTH-01..06 | 6 |
+| 1 | Auth Plugin Architecture | 1/6 | In Progress|  |
 | 2 | Data Mapping Engine | Declarative + scriptable request/response/error mapping | MAP-01..05, MAP-07 | 6 |
 | 3 | Orchestrator Pipeline | Wire auth + mapping into unified and legacy invoke paths | MAP-06, PIPE-01..04 | 5 |
 | 4 | Admin BFF & Gateway Metadata | Config APIs, publish flow, gateway route export | ADMIN-01..05, GW-01..03 | 8 |
@@ -28,6 +28,7 @@
 **Requirements:** AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06
 
 **Success Criteria:**
+
 1. Operator can assign built-in auth profile (api_key, hmac, oauth2, 国密 as needed by legacy audit) to an endpoint via config
 2. Operator can publish Groovy auth script; second invoke uses cached compiled script (measurable compile-once behavior)
 3. AuthContext carries tokens/headers/signatures accessible from unit test without HTTP call
@@ -35,7 +36,7 @@
 5. Integration test: OAuth/HMAC vendor issues correctly signed outbound request
 6. Legacy-used auth types inventory documented from system-thirdpart audit
 
-**Plans:** 6 plans in 5 waves
+**Plans:** 1/6 plans executed
 
 | Wave | Plans | What it builds |
 |------|-------|----------------|
@@ -56,6 +57,7 @@
 **Requirements:** MAP-01, MAP-02, MAP-03, MAP-04, MAP-05, MAP-07
 
 **Success Criteria:**
+
 1. Declarative mapping renames/nests fields with type coercion (string↔number↔date) in unit tests
 2. Groovy mapping script transforms sample vendor JSON to target legacy shape
 3. Error JSON from vendor maps to legacy business error structure
@@ -76,6 +78,7 @@
 **Requirements:** MAP-06, PIPE-01, PIPE-02, PIPE-03, PIPE-04
 
 **Success Criteria:**
+
 1. `POST /api/v1/integrations/{code3rd}/endpoints/{id}/invoke` runs full pipeline end-to-end in integration test
 2. Legacy compat filter URL hits same pipeline with identical outcome as unified API for equivalent endpoint
 3. HMAC endpoint signs request body after request mapping applied (ordering verified by test)
@@ -95,6 +98,7 @@
 **Requirements:** ADMIN-01, ADMIN-02, ADMIN-03, ADMIN-04, ADMIN-05, GW-01, GW-02, GW-03
 
 **Success Criteria:**
+
 1. Admin CRUD covers connector, endpoint, credential, auth profile, mapping rules via `/api/v1/admin`
 2. Publish endpoint refreshes runtime registry within same request flow
 3. Dry-run test invoke returns mapped response without persisting side effects
@@ -117,6 +121,7 @@
 **Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, MON-01, MON-02, MON-03, MON-04
 
 **Success Criteria:**
+
 1. Vue dependencies removed; React app builds via frontend-maven-plugin into JAR
 2. `/console/` loads admin on same port as API (19090 default)
 3. Operator completes connector+auth+mapping config entirely via console
@@ -141,6 +146,7 @@
 **Requirements:** TEST-01, TEST-02, TEST-03, TEST-04
 
 **Success Criteria:**
+
 1. Compat test module exists with golden capture tooling from system-thirdpart responses
 2. CI job fails on golden mismatch
 3. At least one legacy URL path tested per compat filter prefix pattern
@@ -159,6 +165,7 @@
 **Requirements:** MIG-01, MIG-02
 
 **Success Criteria:**
+
 1. Complete inventory matrix: every legacy RestController domain → connector code3rd (100% rows defined)
 2. Wave 1 vendors (TBD from inventory: IDPS, Gaode, Baidu, Hikvision, TrafficBrain, etc.) have Catalog specs
 3. All Wave 1 legacy URLs route correctly via LegacyCompatFilter
@@ -178,6 +185,7 @@
 **Requirements:** MIG-03, MIG-04, MIG-05
 
 **Success Criteria:**
+
 1. All remaining legacy vendor domains migrated; compat tests pass 100% globally
 2. Every system-thirdpart URL prefix registered and smoke-tested
 3. Gateway metadata export synced and verified against gateway team checklist
