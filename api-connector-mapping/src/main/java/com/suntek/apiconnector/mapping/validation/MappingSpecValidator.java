@@ -115,7 +115,11 @@ public final class MappingSpecValidator {
         if (rule.source() == null || rule.source().isBlank()) {
             throw new IllegalArgumentException(rulePath + ".source is required for op array_map");
         }
+        if (rule.target() == null || rule.target().isBlank()) {
+            throw new IllegalArgumentException(rulePath + ".target is required for op array_map");
+        }
         compileJsonPath(rule.source(), rulePath + ".source");
+        compileJsonPath(rule.target(), rulePath + ".target");
         if (rule.rules() == null || rule.rules().isEmpty()) {
             throw new IllegalArgumentException(rulePath + ".rules is required for op array_map");
         }

@@ -8,6 +8,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.suntek.apiconnector.spec.model.MappingOps;
 import com.suntek.apiconnector.spec.model.MappingRule;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,7 @@ public final class DeclarativeRuleExecutor {
         }
         DocumentContext ctx = JsonPath.parse(normalizeInput(inputJson));
         for (MappingRule rule : rules) {
-            applyRule(ctx, rule);
+            applyRule(this, ctx, rule);
         }
         return ctx.jsonString();
     }
@@ -42,7 +43,7 @@ public final class DeclarativeRuleExecutor {
         return inputJson;
     }
 
-    private static void applyRule(DocumentContext ctx, MappingRule rule) {
+    private static void applyRule(DeclarativeRuleExecutor executor, DocumentContext ctx, MappingRule rule) {
         String op = rule.op();
         if (op == null || op.isBlank()) {
             throw new IllegalArgumentException("Mapping rule op is required");
@@ -52,7 +53,7 @@ public final class DeclarativeRuleExecutor {
             case MappingOps.SET -> applySet(ctx, rule);
             case MappingOps.COERCE -> applyCoerce(ctx, rule);
             case MappingOps.NEST -> applyNest(ctx, rule);
-            case MappingOps.ARRAY_MAP -> throw new IllegalArgumentException("array_map is not yet supported");
+            case MappingOps.ARRAY_MAP -> applyArrayMap(executor, ctx, rule);
             default -> throw new IllegalArgumentException("Unknown mapping op: " + op);
         }
     }
@@ -92,6 +93,37 @@ public final class DeclarativeRuleExecutor {
             return;
         }
         writeValue(ctx, target, value);
+    }
+
+    private static void applyArrayMap(DeclarativeRuleExecutor executor, DocumentContext ctx, MappingRule rule) {
+        String source = PathNormalizer.normalize(rule.source());
+        String target = PathNormalizer.normalize(rule.target());
+        Object raw = readLenient(ctx, source);
+        if (raw == null) {
+            return;
+        }
+        if (!(raw instanceof List<?> elements)) {
+            return;
+        }
+        List<MappingRule> nestedRules = rule.rules();
+        if (nestedRules == null || nestedRules.isEmpty()) {
+            writeValue(ctx, target, elements);
+            return;
+        }
+        List<Object> transformed = new ArrayList<>(elements.size());
+        for (Object element : elements) {
+            if (element == null) {
+                transformed.add(null);
+                continue;
+            }
+            String elementJson = JsonPath.parse(element).jsonString();
+            String mappedJson = executor.applyRules(elementJson, nestedRules);
+            transformed.add(JsonPath.parse(mappedJson).json());
+        }
+        writeValue(ctx, target, transformed);
+        if (!source.equals(target)) {
+            deleteLenient(ctx, source);
+        }
     }
 
     private static Object readLenient(DocumentContext ctx, String path) {
