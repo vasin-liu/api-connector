@@ -5,6 +5,8 @@
  */
 package com.suntek.apiconnector.spec.model;
 
+import java.util.Map;
+
 /**
  * Single HTTP endpoint definition.
  *
@@ -20,6 +22,24 @@ public final class EndpointSpec {
     private final String bodyTemplate;
     private final Boolean enabled;
     private final EndpointDocSpec doc;
+    private final Map<String, Object> authOverride;
+
+    public EndpointSpec(
+            String id,
+            String method,
+            String path,
+            String bodyTemplate,
+            Boolean enabled,
+            EndpointDocSpec doc,
+            Map<String, Object> authOverride) {
+        this.id = id;
+        this.method = method;
+        this.path = path;
+        this.bodyTemplate = bodyTemplate;
+        this.enabled = enabled;
+        this.doc = doc;
+        this.authOverride = authOverride;
+    }
 
     public EndpointSpec(
             String id,
@@ -28,17 +48,12 @@ public final class EndpointSpec {
             String bodyTemplate,
             Boolean enabled,
             EndpointDocSpec doc) {
-        this.id = id;
-        this.method = method;
-        this.path = path;
-        this.bodyTemplate = bodyTemplate;
-        this.enabled = enabled;
-        this.doc = doc;
+        this(id, method, path, bodyTemplate, enabled, doc, null);
     }
 
     /** 兼容旧构造（无 doc）。 */
     public EndpointSpec(String id, String method, String path, String bodyTemplate, Boolean enabled) {
-        this(id, method, path, bodyTemplate, enabled, null);
+        this(id, method, path, bodyTemplate, enabled, null, null);
     }
 
     public String id() {
@@ -63,5 +78,9 @@ public final class EndpointSpec {
 
     public EndpointDocSpec doc() {
         return doc;
+    }
+
+    public Map<String, Object> authOverride() {
+        return authOverride;
     }
 }

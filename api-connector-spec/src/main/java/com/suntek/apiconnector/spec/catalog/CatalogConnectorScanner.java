@@ -125,6 +125,7 @@ public final class CatalogConnectorScanner {
         putIfPresent(map, "clientIdRef", auth.clientIdRef());
         putIfPresent(map, "clientSecretRef", auth.clientSecretRef());
         putIfPresent(map, "tokenParam", auth.tokenParam());
+        putIfPresent(map, "script", auth.script());
         return map;
     }
 

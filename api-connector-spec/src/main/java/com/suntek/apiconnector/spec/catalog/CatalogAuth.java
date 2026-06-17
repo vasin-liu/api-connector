@@ -33,4 +33,6 @@ public @interface CatalogAuth {
     String clientSecretRef() default "";
 
     String tokenParam() default "";
+
+    String script() default "";
 }

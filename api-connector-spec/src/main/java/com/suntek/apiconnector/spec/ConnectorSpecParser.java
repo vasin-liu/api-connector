@@ -65,14 +65,27 @@ public final class ConnectorSpecParser {
     }
 
     private static EndpointSpec toEndpoint(Map<String, Object> m) {
+        Map<String, Object> authOverride = map(m.get("authOverride"));
+        if (!authOverride.isEmpty()) {
+            validateAuthOverride(authOverride);
+        }
         EndpointSpec endpoint = new EndpointSpec(
                 str(m.get("id")),
                 str(m.get("method")),
                 str(m.get("path")),
                 str(m.get("bodyTemplate")),
                 m.get("enabled") == null || Boolean.TRUE.equals(m.get("enabled")),
-                null);
+                null,
+                authOverride.isEmpty() ? null : authOverride);
         return EndpointDocumentation.enrich(endpoint);
+    }
+
+    private static void validateAuthOverride(Map<String, Object> authOverride) {
+        Object type = authOverride.get("type");
+        if (!"groovy_auth_script".equals(String.valueOf(type))) {
+            throw new IllegalArgumentException(
+                    "Endpoint authOverride is Groovy-only: type must be groovy_auth_script, got: " + type);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -131,6 +144,9 @@ public final class ConnectorSpecParser {
         map.put("path", endpoint.path());
         map.put("bodyTemplate", endpoint.bodyTemplate());
         map.put("enabled", endpoint.enabled());
+        if (endpoint.authOverride() != null && !endpoint.authOverride().isEmpty()) {
+            map.put("authOverride", endpoint.authOverride());
+        }
         return map;
     }
 

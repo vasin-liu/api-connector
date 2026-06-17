@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ConnectorSpecParserTest {
 
@@ -52,5 +53,38 @@ class ConnectorSpecParserTest {
         assertThat(spec.endpoints().get(0).doc().summary()).isEqualTo("Road Speeds");
         assertThat(EndpointDocumentation.inferGroupFromPath(spec.endpoints().get(0).path()))
                 .isEqualTo("路况感知 · 道路");
+    }
+
+    @Test
+    void parsesGroovyAuthOverrideOnEndpoint() {
+        ConnectorSpec spec = ConnectorSpecParser.parse(Map.of(
+                "code3rd", "GROOVY_DEMO",
+                "baseUrl", "https://example.com",
+                "auth", Map.of("type", "none"),
+                "endpoints", List.of(Map.of(
+                        "id", "special",
+                        "method", "GET",
+                        "path", "/special",
+                        "authOverride", Map.of(
+                                "type", "groovy_auth_script",
+                                "script", "return null")))));
+
+        assertThat(spec.endpoints().get(0).authOverride())
+                .containsEntry("type", "groovy_auth_script");
+    }
+
+    @Test
+    void rejectsNonGroovyAuthOverrideAtParse() {
+        assertThatThrownBy(() -> ConnectorSpecParser.parse(Map.of(
+                "code3rd", "BAD",
+                "baseUrl", "https://example.com",
+                "auth", Map.of("type", "none"),
+                "endpoints", List.of(Map.of(
+                        "id", "bad",
+                        "method", "GET",
+                        "path", "/bad",
+                        "authOverride", Map.of("type", "bearer_static"))))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Groovy-only");
     }
 }

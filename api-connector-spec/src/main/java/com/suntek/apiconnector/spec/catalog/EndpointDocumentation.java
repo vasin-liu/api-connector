@@ -59,7 +59,8 @@ public final class EndpointDocumentation {
                 endpoint.path(),
                 endpoint.bodyTemplate(),
                 endpoint.enabled(),
-                doc);
+                doc,
+                endpoint.authOverride());
     }
 
     public static String humanizeId(String id) {
