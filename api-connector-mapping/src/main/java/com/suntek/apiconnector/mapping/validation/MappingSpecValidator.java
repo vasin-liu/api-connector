@@ -4,6 +4,7 @@
 package com.suntek.apiconnector.mapping.validation;
 
 import com.jayway.jsonpath.JsonPath;
+import com.suntek.apiconnector.mapping.TransformStepRegistry;
 import com.suntek.apiconnector.spec.model.ConnectorSpec;
 import com.suntek.apiconnector.spec.model.DirectionMappingSpec;
 import com.suntek.apiconnector.spec.model.EndpointSpec;
@@ -14,9 +15,19 @@ import com.suntek.apiconnector.spec.model.MappingSpec;
 import java.util.List;
 
 /**
- * Publish-time validation for declarative mapping rules (D-04, D-10, D-30).
+ * Publish-time validation for declarative mapping rules and {@code transform[]} steps (D-04, D-10, D-30).
  */
 public final class MappingSpecValidator {
+
+    private final TransformStepRegistry transformStepRegistry;
+
+    public MappingSpecValidator() {
+        this(null);
+    }
+
+    public MappingSpecValidator(TransformStepRegistry transformStepRegistry) {
+        this.transformStepRegistry = transformStepRegistry;
+    }
 
     public void validate(ConnectorSpec spec) {
         if (spec == null) {

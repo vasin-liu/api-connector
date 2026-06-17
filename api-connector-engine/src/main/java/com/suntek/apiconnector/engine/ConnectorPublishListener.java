@@ -12,6 +12,7 @@ import com.suntek.apiconnector.domain.model.AuthContextSnapshot;
 import com.suntek.apiconnector.domain.model.EndpointMeta;
 import com.suntek.apiconnector.domain.model.MappingContext;
 import com.suntek.apiconnector.domain.model.MappingDirection;
+import com.suntek.apiconnector.mapping.TransformStepRegistry;
 import com.suntek.apiconnector.mapping.exception.MappingExceptions;
 import com.suntek.apiconnector.mapping.spi.MappingScript;
 import com.suntek.apiconnector.mapping.validation.MappingSpecValidator;
@@ -40,10 +41,19 @@ public final class ConnectorPublishListener {
 
     private final ScriptCompileService scriptCompileService;
     private final TokenCache tokenCache;
+    private final TransformStepRegistry transformStepRegistry;
 
     public ConnectorPublishListener(ScriptCompileService scriptCompileService, TokenCache tokenCache) {
+        this(scriptCompileService, tokenCache, null);
+    }
+
+    public ConnectorPublishListener(
+            ScriptCompileService scriptCompileService,
+            TokenCache tokenCache,
+            TransformStepRegistry transformStepRegistry) {
         this.scriptCompileService = scriptCompileService;
         this.tokenCache = tokenCache;
+        this.transformStepRegistry = transformStepRegistry;
     }
 
     /**
@@ -97,7 +107,7 @@ public final class ConnectorPublishListener {
 
     private void validateMappingSpec(ConnectorSpec spec) {
         try {
-            new MappingSpecValidator().validate(spec);
+            new MappingSpecValidator(transformStepRegistry).validate(spec);
         } catch (IllegalArgumentException ex) {
             throw MappingExceptions.specInvalid("mapping", ex.getMessage(), ex);
         }

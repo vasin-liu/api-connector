@@ -63,4 +63,43 @@ public final class MappingExceptions {
                 MappingErrorCode.MAPPING_SCRIPT_RUNTIME_ERROR,
                 Map.of("code3rd", code3rd, "message", message));
     }
+
+    public static MappingException transformUnsupported(String type) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("type", type);
+        return new MappingException(
+                "Unsupported transform type: " + type,
+                MappingErrorCode.TRANSFORM_UNSUPPORTED,
+                details);
+    }
+
+    public static MappingException transformKeyMissing(String type, String keyRef) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("type", type);
+        if (keyRef != null) {
+            details.put("keyRef", keyRef);
+            return new MappingException(
+                    "Transform " + type + " could not resolve credential for keyRef: " + keyRef,
+                    MappingErrorCode.TRANSFORM_KEY_MISSING,
+                    details);
+        }
+        return new MappingException(
+                "Transform " + type + " requires a keyRef but none was configured",
+                MappingErrorCode.TRANSFORM_KEY_MISSING,
+                details);
+    }
+
+    public static MappingException transformFailed(String type, String message, Throwable cause) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("type", type);
+        details.put("message", message);
+        MappingException ex = new MappingException(
+                "Transform " + type + " failed: " + message,
+                MappingErrorCode.TRANSFORM_FAILED,
+                details);
+        if (cause != null) {
+            ex.initCause(cause);
+        }
+        return ex;
+    }
 }

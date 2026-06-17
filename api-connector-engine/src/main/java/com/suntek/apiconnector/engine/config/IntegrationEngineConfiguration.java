@@ -26,7 +26,13 @@ import com.suntek.apiconnector.engine.transport.JdkHttpTransport;
 import com.suntek.apiconnector.mapping.DeclarativeRuleExecutor;
 import com.suntek.apiconnector.mapping.GroovyMappingScriptProvider;
 import com.suntek.apiconnector.mapping.MappingEngineImpl;
+import com.suntek.apiconnector.mapping.TransformPipeline;
+import com.suntek.apiconnector.mapping.TransformStepRegistry;
 import com.suntek.apiconnector.mapping.spi.MappingEngine;
+import com.suntek.apiconnector.mapping.spi.TransformStep;
+import com.suntek.apiconnector.mapping.transform.Sm4DecryptTransformStep;
+import com.suntek.apiconnector.mapping.transform.Sm4EncryptTransformStep;
+import com.suntek.apiconnector.mapping.transform.StubTransformStep;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,8 +56,10 @@ public class IntegrationEngineConfiguration {
      */
     @Bean
     public ConnectorPublishListener connectorPublishListener(
-            ScriptCompileService scriptCompileService, TokenCache tokenCache) {
-        return new ConnectorPublishListener(scriptCompileService, tokenCache);
+            ScriptCompileService scriptCompileService,
+            TokenCache tokenCache,
+            TransformStepRegistry transformStepRegistry) {
+        return new ConnectorPublishListener(scriptCompileService, tokenCache, transformStepRegistry);
     }
 
     @Bean
@@ -172,6 +180,31 @@ public class IntegrationEngineConfiguration {
             DeclarativeRuleExecutor declarativeRuleExecutor,
             GroovyMappingScriptProvider groovyMappingScriptProvider) {
         return new MappingEngineImpl(declarativeRuleExecutor, groovyMappingScriptProvider);
+    }
+
+    @Bean
+    public Sm4EncryptTransformStep sm4EncryptTransformStep() {
+        return new Sm4EncryptTransformStep();
+    }
+
+    @Bean
+    public Sm4DecryptTransformStep sm4DecryptTransformStep() {
+        return new Sm4DecryptTransformStep();
+    }
+
+    @Bean
+    public StubTransformStep businessEnvelopeTransformStep() {
+        return StubTransformStep.businessEnvelope();
+    }
+
+    @Bean
+    public TransformStepRegistry transformStepRegistry(List<TransformStep> transformSteps) {
+        return new TransformStepRegistry(transformSteps);
+    }
+
+    @Bean
+    public TransformPipeline transformPipeline(TransformStepRegistry transformStepRegistry) {
+        return new TransformPipeline(transformStepRegistry);
     }
 
     // Wave 1 L2 profiles (oauth2_password, bearer_from_login, sm3_header_sign_v1) are inventory-gated
