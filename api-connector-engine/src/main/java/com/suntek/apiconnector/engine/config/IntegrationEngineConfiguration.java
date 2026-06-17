@@ -152,4 +152,7 @@ public class IntegrationEngineConfiguration {
     public GroovyAuthScriptProvider groovyAuthScriptProvider(ScriptCompileService scriptCompileService) {
         return new GroovyAuthScriptProvider(scriptCompileService);
     }
+
+    // Wave 1 L2 profiles (oauth2_password, bearer_from_login, sm3_header_sign_v1) are inventory-gated
+    // per docs/legacy-auth-inventory.md — not required for Phase 1 Wave 1 catalogs (D-01, D-04).
 }
