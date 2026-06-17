@@ -1,0 +1,17 @@
+code3rd: DEMO_RENAME
+version: "1.0.0"
+baseUrl: https://example.com
+protocol: HTTP
+auth:
+  type: none
+mapping:
+  request:
+    rules:
+      - op: rename
+        source: $.clientId
+        target: $.app_id
+endpoints:
+  - id: echo
+    method: GET
+    path: /echo
+    enabled: true

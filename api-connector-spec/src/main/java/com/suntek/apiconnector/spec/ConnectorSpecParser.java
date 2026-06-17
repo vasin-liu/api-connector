@@ -7,9 +7,13 @@ package com.suntek.apiconnector.spec;
 
 import com.suntek.apiconnector.spec.catalog.EndpointDocumentation;
 import com.suntek.apiconnector.spec.model.ConnectorSpec;
+import com.suntek.apiconnector.spec.model.DirectionMappingSpec;
 import com.suntek.apiconnector.spec.model.EndpointSpec;
+import com.suntek.apiconnector.spec.model.MappingRule;
+import com.suntek.apiconnector.spec.model.MappingSpec;
 import com.suntek.apiconnector.spec.model.ResponseSpec;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,7 +65,7 @@ public final class ConnectorSpecParser {
                 endpoints,
                 response,
                 map(connector.get("transport")),
-                null,
+                parseMappingSpec(map(connector.get("mapping")), "mapping"),
                 list(connector.get("transform"))));
     }
 
@@ -70,6 +74,7 @@ public final class ConnectorSpecParser {
         if (!authOverride.isEmpty()) {
             validateAuthOverride(authOverride);
         }
+        MappingSpec mappingOverride = parseMappingSpec(map(m.get("mappingOverride")), "mappingOverride");
         EndpointSpec endpoint = new EndpointSpec(
                 str(m.get("id")),
                 str(m.get("method")),
@@ -77,7 +82,8 @@ public final class ConnectorSpecParser {
                 str(m.get("bodyTemplate")),
                 m.get("enabled") == null || Boolean.TRUE.equals(m.get("enabled")),
                 null,
-                authOverride.isEmpty() ? null : authOverride);
+                authOverride.isEmpty() ? null : authOverride,
+                mappingOverride);
         return EndpointDocumentation.enrich(endpoint);
     }
 
@@ -87,6 +93,58 @@ public final class ConnectorSpecParser {
             throw new IllegalArgumentException(
                     "Endpoint authOverride is Groovy-only: type must be groovy_auth_script, got: " + type);
         }
+    }
+
+    private static MappingSpec parseMappingSpec(Map<String, Object> mappingMap, String pathPrefix) {
+        if (mappingMap.isEmpty()) {
+            return null;
+        }
+        DirectionMappingSpec request = parseDirectionMapping(
+                map(mappingMap.get("request")), pathPrefix + ".request");
+        DirectionMappingSpec response = parseDirectionMapping(
+                map(mappingMap.get("response")), pathPrefix + ".response");
+        DirectionMappingSpec error = parseDirectionMapping(
+                map(mappingMap.get("error")), pathPrefix + ".error");
+        if (request == null && response == null && error == null) {
+            return null;
+        }
+        return new MappingSpec(request, response, error);
+    }
+
+    private static DirectionMappingSpec parseDirectionMapping(Map<String, Object> directionMap, String directionPath) {
+        if (directionMap.isEmpty()) {
+            return null;
+        }
+        List<MappingRule> rules = parseMappingRules(list(directionMap.get("rules")));
+        String script = str(directionMap.get("script"));
+        boolean hasRules = rules != null && !rules.isEmpty();
+        boolean hasScript = script != null && !script.isBlank();
+        if (hasRules && hasScript) {
+            throw new IllegalArgumentException(
+                    directionPath + " cannot contain both rules and script (D-10)");
+        }
+        if (!hasRules && !hasScript) {
+            return null;
+        }
+        return new DirectionMappingSpec(hasRules ? rules : null, hasScript ? script : null);
+    }
+
+    private static List<MappingRule> parseMappingRules(List<Map<String, Object>> ruleMaps) {
+        if (ruleMaps == null || ruleMaps.isEmpty()) {
+            return null;
+        }
+        List<MappingRule> rules = new ArrayList<>();
+        for (Map<String, Object> ruleMap : ruleMaps) {
+            List<MappingRule> nested = parseMappingRules(list(ruleMap.get("rules")));
+            rules.add(new MappingRule(
+                    str(ruleMap.get("op")),
+                    str(ruleMap.get("source")),
+                    str(ruleMap.get("target")),
+                    str(ruleMap.get("type")),
+                    ruleMap.get("value"),
+                    nested));
+        }
+        return rules;
     }
 
     @SuppressWarnings("unchecked")
@@ -134,6 +192,12 @@ public final class ConnectorSpecParser {
             connector.put("response", response);
         }
         connector.put("transport", spec.transport());
+        if (spec.mapping() != null) {
+            Map<String, Object> mapping = mappingToMap(spec.mapping());
+            if (!mapping.isEmpty()) {
+                connector.put("mapping", mapping);
+            }
+        }
         connector.put("transform", spec.transform());
         return connector;
     }
@@ -147,6 +211,67 @@ public final class ConnectorSpecParser {
         map.put("enabled", endpoint.enabled());
         if (endpoint.authOverride() != null && !endpoint.authOverride().isEmpty()) {
             map.put("authOverride", endpoint.authOverride());
+        }
+        if (endpoint.mappingOverride() != null) {
+            Map<String, Object> mappingOverride = mappingToMap(endpoint.mappingOverride());
+            if (!mappingOverride.isEmpty()) {
+                map.put("mappingOverride", mappingOverride);
+            }
+        }
+        return map;
+    }
+
+    private static Map<String, Object> mappingToMap(MappingSpec mapping) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        putDirectionIfPresent(result, "request", mapping.request());
+        putDirectionIfPresent(result, "response", mapping.response());
+        putDirectionIfPresent(result, "error", mapping.error());
+        return result;
+    }
+
+    private static void putDirectionIfPresent(
+            Map<String, Object> parent, String key, DirectionMappingSpec direction) {
+        if (direction == null) {
+            return;
+        }
+        Map<String, Object> directionMap = directionMappingToMap(direction);
+        if (!directionMap.isEmpty()) {
+            parent.put(key, directionMap);
+        }
+    }
+
+    private static Map<String, Object> directionMappingToMap(DirectionMappingSpec direction) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        if (direction.rules() != null && !direction.rules().isEmpty()) {
+            map.put("rules", direction.rules().stream()
+                    .map(ConnectorSpecParser::mappingRuleToMap)
+                    .collect(Collectors.toList()));
+        }
+        if (direction.script() != null && !direction.script().isBlank()) {
+            map.put("script", direction.script());
+        }
+        return map;
+    }
+
+    private static Map<String, Object> mappingRuleToMap(MappingRule rule) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("op", rule.op());
+        if (rule.source() != null) {
+            map.put("source", rule.source());
+        }
+        if (rule.target() != null) {
+            map.put("target", rule.target());
+        }
+        if (rule.type() != null) {
+            map.put("type", rule.type());
+        }
+        if (rule.value() != null) {
+            map.put("value", rule.value());
+        }
+        if (rule.rules() != null && !rule.rules().isEmpty()) {
+            map.put("rules", rule.rules().stream()
+                    .map(ConnectorSpecParser::mappingRuleToMap)
+                    .collect(Collectors.toList()));
         }
         return map;
     }
