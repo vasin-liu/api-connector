@@ -17,6 +17,7 @@
         <module>api-connector-parent</module>
         <module>api-connector-domain</module>
         <module>api-connector-spec</module>
+        <module>api-connector-scripting</module>
         <module>api-connector-auth</module>
         <module>api-connector-engine</module>
         <module>api-connector-connectors</module>
