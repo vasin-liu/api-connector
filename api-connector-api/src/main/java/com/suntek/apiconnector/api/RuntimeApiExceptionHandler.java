@@ -61,8 +61,9 @@ public class RuntimeApiExceptionHandler {
     @ExceptionHandler(MappingException.class)
     public ResponseEntity<ApiErrorResponse> handleMapping(MappingException ex) {
         HttpStatus status = switch (ex.code()) {
-            case MAPPING_SPEC_INVALID, MAPPING_SCRIPT_COMPILE_ERROR, TRANSFORM_UNSUPPORTED -> HttpStatus.BAD_REQUEST;
-            case MAPPING_SCRIPT_RUNTIME_ERROR, MAPPING_COERCE_FAILED -> HttpStatus.BAD_GATEWAY;
+            case MAPPING_SPEC_INVALID, MAPPING_SCRIPT_COMPILE_ERROR, TRANSFORM_UNSUPPORTED,
+                    TRANSFORM_KEY_MISSING -> HttpStatus.BAD_REQUEST;
+            case MAPPING_SCRIPT_RUNTIME_ERROR, MAPPING_COERCE_FAILED, TRANSFORM_FAILED -> HttpStatus.BAD_GATEWAY;
         };
         return ResponseEntity.status(status).body(ApiErrorResponse.builder()
                 .code(ex.code().name())
