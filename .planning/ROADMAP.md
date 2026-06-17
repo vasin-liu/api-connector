@@ -65,7 +65,21 @@
 5. Passthrough endpoints skip mapping with zero overhead path
 6. Mapping spec validates on admin save (invalid path/transform rejected)
 
-**Plans:** 0
+**Plans:** 6 plans
+
+| Wave | Plans | What it builds |
+|------|-------|----------------|
+| 1 | 02-01 | `api-connector-mapping` module + MappingSpec model + parser + publish validator |
+| 2 | 02-02 | DeclarativeRuleExecutor: rename, set, coerce, nest |
+| 3 | 02-03 | array_map + MappingEngine facade + MappingConfigResolver |
+| 4 | 02-04 | Groovy mapping scripts + publish compile + MappingException handler |
+| 5 | 02-05 | Error mapping → legacy shape + passthrough hasAnyMapping API |
+| 6 | 02-06 | TransformStep SPI + SM4 + JDBC publish integration test |
+
+**Cross-cutting constraints:**
+- Connector default + endpoint override resolution (D-01) across all mapping directions
+- Publish-time validation rejects invalid JSONPath/transforms (D-04, D-30)
+- Orchestrator invoke wiring deferred to Phase 3 (MAP-06, D-26)
 
 ---
 
