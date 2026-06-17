@@ -9,6 +9,8 @@ import com.suntek.apiconnector.auth.cache.CachedToken;
 import com.suntek.apiconnector.auth.cache.TokenCache;
 import com.suntek.apiconnector.auth.cache.TokenCacheKey;
 import com.suntek.apiconnector.auth.context.AuthContext;
+import com.suntek.apiconnector.auth.exception.AuthException;
+import com.suntek.apiconnector.auth.exception.AuthExceptions;
 import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.auth.spi.AuthProvider;
 
@@ -91,20 +93,32 @@ public class OAuth2TokenInQueryAuthProvider implements AuthProvider {
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("OAuth2 token request failed: HTTP " + response.statusCode());
+                throw AuthExceptions.upstreamFailed(
+                        "OAuth2 token request failed: HTTP " + response.statusCode(),
+                        context.code3rd(),
+                        TYPE,
+                        response.statusCode());
             }
             String rawJson = response.body();
             JsonNode json = objectMapper.readTree(rawJson);
             String accessToken = json.path("access_token").asText(null);
             if (accessToken == null || accessToken.isBlank()) {
-                throw new IllegalStateException("OAuth2 response missing access_token");
+                throw AuthExceptions.upstreamFailed(
+                        "OAuth2 response missing access_token",
+                        context.code3rd(),
+                        TYPE,
+                        response.statusCode());
             }
             long expiresIn = json.path("expires_in").asLong(3600);
             return new CachedToken(accessToken, Instant.now().plusSeconds(expiresIn), rawJson);
-        } catch (IllegalStateException ex) {
+        } catch (AuthException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new IllegalStateException("OAuth2 token request error: " + ex.getMessage(), ex);
+            throw AuthExceptions.upstreamFailed(
+                    "OAuth2 token request error: " + ex.getMessage(),
+                    context.code3rd(),
+                    TYPE,
+                    null);
         }
     }
 

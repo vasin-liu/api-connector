@@ -3,8 +3,9 @@ package com.suntek.apiconnector.engine;
 import com.suntek.apiconnector.auth.cache.CachedToken;
 import com.suntek.apiconnector.auth.cache.TokenCache;
 import com.suntek.apiconnector.auth.cache.TokenCacheKey;
+import com.suntek.apiconnector.auth.exception.AuthErrorCode;
+import com.suntek.apiconnector.auth.exception.AuthException;
 import com.suntek.apiconnector.scripting.CompiledScriptCache;
-import com.suntek.apiconnector.scripting.ScriptCompileException;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
 import com.suntek.apiconnector.spec.model.ConnectorSpec;
 import com.suntek.apiconnector.spec.model.EndpointSpec;
@@ -92,7 +93,8 @@ class ConnectorPublishListenerTest {
                 "return 'not-an-auth-outcome'",
                 null);
 
-        ScriptCompileException ex = assertThrows(ScriptCompileException.class, () -> listener.onPublish(spec));
+        AuthException ex = assertThrows(AuthException.class, () -> listener.onPublish(spec));
+        assertEquals(AuthErrorCode.AUTH_SCRIPT_COMPILE_ERROR, ex.code());
         assertTrue(ex.getMessage().contains("AUTH_SCRIPT_COMPILE_ERROR"));
     }
 

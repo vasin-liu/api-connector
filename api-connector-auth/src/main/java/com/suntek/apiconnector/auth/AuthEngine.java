@@ -6,6 +6,7 @@
 package com.suntek.apiconnector.auth;
 
 import com.suntek.apiconnector.auth.context.AuthContext;
+import com.suntek.apiconnector.auth.exception.AuthExceptions;
 import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.auth.spi.AuthProvider;
 
@@ -66,7 +67,7 @@ public class AuthEngine {
         String type = String.valueOf(stepConfig.get("type"));
         AuthProvider provider = providersByType.get(type);
         if (provider == null) {
-            throw new IllegalStateException("No AuthProvider for type: " + type);
+            throw AuthExceptions.profileMissing(type, context.code3rd());
         }
         AuthContext stepCtx = new AuthContext(
                 context.code3rd(),

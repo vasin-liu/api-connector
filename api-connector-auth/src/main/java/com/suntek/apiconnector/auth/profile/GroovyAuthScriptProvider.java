@@ -4,6 +4,7 @@
 package com.suntek.apiconnector.auth.profile;
 
 import com.suntek.apiconnector.auth.context.AuthContext;
+import com.suntek.apiconnector.auth.exception.AuthExceptions;
 import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.auth.spi.AuthProvider;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
@@ -50,11 +51,13 @@ public class GroovyAuthScriptProvider implements AuthProvider {
             }
             return outcome;
         } catch (ScriptCompileException ex) {
-            throw new IllegalStateException("Groovy auth script compile failed: " + ex.getMessage(), ex);
+            throw AuthExceptions.scriptCompileError(ex);
         } catch (ClassCastException ex) {
-            throw new IllegalStateException("Groovy auth script must return AuthOutcome: " + ex.getMessage(), ex);
+            throw AuthExceptions.scriptRuntimeError(
+                    "Groovy auth script must return AuthOutcome: " + ex.getMessage(), context.code3rd());
         } catch (ScriptException ex) {
-            throw new IllegalStateException("Groovy auth script execution failed: " + ex.getMessage(), ex);
+            throw AuthExceptions.scriptRuntimeError(
+                    "Groovy auth script execution failed: " + ex.getMessage(), context.code3rd());
         }
     }
 

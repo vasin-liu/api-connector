@@ -5,6 +5,7 @@ package com.suntek.apiconnector.engine;
 
 import com.suntek.apiconnector.auth.cache.TokenCache;
 import com.suntek.apiconnector.auth.context.AuthContext;
+import com.suntek.apiconnector.auth.exception.AuthExceptions;
 import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.auth.spi.AuthScript;
 import com.suntek.apiconnector.scripting.ScriptCompileException;
@@ -40,6 +41,14 @@ public final class ConnectorPublishListener {
      * Evicts cached tokens and compiles all Groovy auth scripts in the connector spec.
      */
     public void onPublish(ConnectorSpec spec) {
+        try {
+            onPublishInternal(spec);
+        } catch (ScriptCompileException ex) {
+            throw AuthExceptions.scriptCompileError(ex);
+        }
+    }
+
+    private void onPublishInternal(ConnectorSpec spec) {
         tokenCache.evictForConnector(spec.code3rd());
 
         Set<String> compiledSources = new HashSet<>();
