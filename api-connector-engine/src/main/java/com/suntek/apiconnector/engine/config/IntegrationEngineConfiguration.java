@@ -10,6 +10,7 @@ import com.suntek.apiconnector.auth.profile.AkskHmacSha256V1AuthProvider;
 import com.suntek.apiconnector.auth.profile.ApiKeyQueryAuthProvider;
 import com.suntek.apiconnector.auth.profile.BearerStaticAuthProvider;
 import com.suntek.apiconnector.auth.profile.GaodeTrafficHmacAuthProvider;
+import com.suntek.apiconnector.auth.profile.GroovyAuthScriptProvider;
 import com.suntek.apiconnector.auth.profile.NoneAuthProvider;
 import com.suntek.apiconnector.auth.profile.OAuth2ClientCredentialsAuthProvider;
 import com.suntek.apiconnector.auth.profile.OAuth2TokenInQueryAuthProvider;
@@ -20,6 +21,7 @@ import com.suntek.apiconnector.engine.DefaultIntegrationOrchestrator;
 import com.suntek.apiconnector.engine.ResponseEvaluator;
 import com.suntek.apiconnector.engine.transport.HttpTransport;
 import com.suntek.apiconnector.engine.transport.JdkHttpTransport;
+import com.suntek.apiconnector.scripting.ScriptCompileService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -126,5 +128,15 @@ public class IntegrationEngineConfiguration {
     @Bean
     public GaodeTrafficHmacAuthProvider gaodeTrafficHmacAuthProvider() {
         return new GaodeTrafficHmacAuthProvider();
+    }
+
+    @Bean
+    public ScriptCompileService scriptCompileService() {
+        return new ScriptCompileService();
+    }
+
+    @Bean
+    public GroovyAuthScriptProvider groovyAuthScriptProvider(ScriptCompileService scriptCompileService) {
+        return new GroovyAuthScriptProvider(scriptCompileService);
     }
 }

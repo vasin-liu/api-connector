@@ -25,6 +25,10 @@
             <artifactId>api-connector-spec</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.suntek.apiconnector</groupId>
+            <artifactId>api-connector-scripting</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
         </dependency>
