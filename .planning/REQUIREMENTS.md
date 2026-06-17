@@ -12,7 +12,7 @@
 - [ ] **AUTH-03**: System compiles and caches Groovy auth scripts on publish (no per-request recompilation)
 - [x] **AUTH-04**: AuthEngine produces an immutable AuthContext (tokens, signatures, headers) consumable by mapping and HTTP transport steps
 - [x] **AUTH-05**: AuthContext is available to Groovy mapping scripts for the same invoke pipeline
-- [ ] **AUTH-06**: System fails invoke with structured error when auth profile/script is missing or misconfigured
+- [x] **AUTH-06**: System fails invoke with structured error when auth profile/script is missing or misconfigured
 
 ### Data Mapping (MAP)
 
@@ -113,7 +113,7 @@
 | AUTH-03 | Phase 1 | Pending |
 | AUTH-04 | Phase 1 | Complete |
 | AUTH-05 | Phase 1 | Complete |
-| AUTH-06 | Phase 1 | Pending |
+| AUTH-06 | Phase 1 | Complete |
 | MAP-01 | Phase 2 | Pending |
 | MAP-02 | Phase 2 | Pending |
 | MAP-03 | Phase 2 | Pending |
