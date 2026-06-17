@@ -3,6 +3,8 @@
  */
 package com.suntek.apiconnector.mapping.exception;
 
+import com.suntek.apiconnector.scripting.ScriptCompileException;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -43,5 +45,22 @@ public final class MappingExceptions {
             ex.initCause(cause);
         }
         return ex;
+    }
+
+    public static MappingException scriptCompileError(ScriptCompileException ex) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("label", ex.label());
+        if (ex.line() != null) {
+            details.put("line", ex.line());
+        }
+        details.put("message", ex.getMessage());
+        return new MappingException(ex.getMessage(), MappingErrorCode.MAPPING_SCRIPT_COMPILE_ERROR, details);
+    }
+
+    public static MappingException scriptRuntimeError(String message, String code3rd) {
+        return new MappingException(
+                message,
+                MappingErrorCode.MAPPING_SCRIPT_RUNTIME_ERROR,
+                Map.of("code3rd", code3rd, "message", message));
     }
 }

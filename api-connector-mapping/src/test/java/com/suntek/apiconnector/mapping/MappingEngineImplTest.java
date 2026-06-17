@@ -8,7 +8,9 @@ import com.suntek.apiconnector.domain.model.AuthContextSnapshot;
 import com.suntek.apiconnector.domain.model.EndpointMeta;
 import com.suntek.apiconnector.domain.model.MappingContext;
 import com.suntek.apiconnector.domain.model.MappingDirection;
+import com.suntek.apiconnector.mapping.exception.MappingException;
 import com.suntek.apiconnector.mapping.spi.MappingEngine;
+import com.suntek.apiconnector.scripting.ScriptCompileService;
 import com.suntek.apiconnector.spec.model.MappingRule;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MappingEngineImplTest {
 
-    private final MappingEngine engine = new MappingEngineImpl(new DeclarativeRuleExecutor());
+    private final MappingEngine engine = new MappingEngineImpl(
+            new DeclarativeRuleExecutor(),
+            new GroovyMappingScriptProvider(new ScriptCompileService()));
 
     @Test
     void mapRequestAppliesDeclarativeRules() {
@@ -51,14 +55,32 @@ class MappingEngineImplTest {
     }
 
     @Test
-    void scriptDirectionThrowsUnsupported() {
-        MappingContext ctx = context(MappingDirection.REQUEST, "{}");
+    void scriptDirectionAppliesGroovyMapping() {
+        MappingContext ctx = context(MappingDirection.REQUEST, "{\"clientId\":\"x\"}");
         ResolvedMapping config = ResolvedMapping.of(
-                ResolvedMapping.ResolvedDirection.ofScript("return [:]", null),
+                ResolvedMapping.ResolvedDirection.ofScript(
+                        """
+                                def m = ctx.bodyAsMap()
+                                [app_id: m.clientId]
+                                """,
+                        null),
                 null,
                 null);
 
-        assertThrows(UnsupportedOperationException.class, () -> engine.mapRequest(ctx, config));
+        String output = engine.mapRequest(ctx, config);
+
+        assertEquals("x", JsonPath.read(output, "$.app_id"));
+    }
+
+    @Test
+    void scriptDirectionRejectsInvalidReturnType() {
+        MappingContext ctx = context(MappingDirection.REQUEST, "{}");
+        ResolvedMapping config = ResolvedMapping.of(
+                ResolvedMapping.ResolvedDirection.ofScript("return 42", null),
+                null,
+                null);
+
+        assertThrows(MappingException.class, () -> engine.mapRequest(ctx, config));
     }
 
     @Test

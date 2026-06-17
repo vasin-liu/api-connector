@@ -7,14 +7,16 @@ import com.suntek.apiconnector.domain.model.MappingContext;
 import com.suntek.apiconnector.mapping.spi.MappingEngine;
 
 /**
- * Dispatches declarative rules per direction; Groovy scripts wired in Plan 04 (D-10).
+ * Dispatches declarative rules or Groovy scripts per direction (D-10).
  */
 public final class MappingEngineImpl implements MappingEngine {
 
     private final DeclarativeRuleExecutor ruleExecutor;
+    private final GroovyMappingScriptProvider scriptProvider;
 
-    public MappingEngineImpl(DeclarativeRuleExecutor ruleExecutor) {
+    public MappingEngineImpl(DeclarativeRuleExecutor ruleExecutor, GroovyMappingScriptProvider scriptProvider) {
         this.ruleExecutor = ruleExecutor;
+        this.scriptProvider = scriptProvider;
     }
 
     @Override
@@ -40,8 +42,20 @@ public final class MappingEngineImpl implements MappingEngine {
             return ruleExecutor.applyRules(ctx.rawBody(), direction.rules());
         }
         if (direction.hasScript()) {
-            throw new UnsupportedOperationException("Groovy mapping scripts are not yet implemented");
+            String compileLabel = mappingCompileLabel(ctx);
+            if (direction.compiledScript() != null) {
+                return scriptProvider.evalAsJson(direction.compiledScript(), ctx, compileLabel);
+            }
+            return scriptProvider.applyAsJson(ctx, direction.script(), compileLabel);
         }
         return ctx.rawBody();
+    }
+
+    private static String mappingCompileLabel(MappingContext ctx) {
+        String direction = ctx.direction().name().toLowerCase();
+        if (ctx.endpoint() != null && ctx.endpoint().id() != null && !ctx.endpoint().id().isBlank()) {
+            return ctx.code3rd() + ":endpoint:" + ctx.endpoint().id() + ":mapping:" + direction;
+        }
+        return ctx.code3rd() + ":mapping:" + direction;
     }
 }
