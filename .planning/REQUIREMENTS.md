@@ -7,7 +7,7 @@
 
 ### Authentication (AUTH)
 
-- [ ] **AUTH-01**: Operator can register a Java built-in auth profile on a connector endpoint (covering all auth types used by legacy system-thirdpart vendors)
+- [x] **AUTH-01**: Operator can register a Java built-in auth profile on a connector endpoint (covering all auth types used by legacy system-thirdpart vendors)
 - [ ] **AUTH-02**: Operator can attach a Groovy auth script to a connector endpoint for non-standard outbound authentication flows
 - [ ] **AUTH-03**: System compiles and caches Groovy auth scripts on publish (no per-request recompilation)
 - [x] **AUTH-04**: AuthEngine produces an immutable AuthContext (tokens, signatures, headers) consumable by mapping and HTTP transport steps
@@ -108,7 +108,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Complete |
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-03 | Phase 1 | Pending |
 | AUTH-04 | Phase 1 | Complete |
