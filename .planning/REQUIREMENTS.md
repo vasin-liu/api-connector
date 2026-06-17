@@ -17,12 +17,12 @@
 ### Data Mapping (MAP)
 
 - [x] **MAP-01**: Operator can define declarative request field mappings (paths, transforms, type coercion) per endpoint
-- [ ] **MAP-02**: Operator can define declarative response field mappings per endpoint including nested objects and arrays
-- [ ] **MAP-03**: Operator can attach a Groovy mapping script for complex transformations not expressible declaratively
-- [ ] **MAP-04**: MappingEngine supports error-response mapping to legacy error JSON shapes
+- [x] **MAP-02**: Operator can define declarative response field mappings per endpoint including nested objects and arrays
+- [x] **MAP-03**: Operator can attach a Groovy mapping script for complex transformations not expressible declaratively
+- [x] **MAP-04**: MappingEngine supports error-response mapping to legacy error JSON shapes
 - [x] **MAP-05**: Mapping rules persist in JDBC store and reload on connector publish without restart
 - [ ] **MAP-06**: Invoke pipeline applies mappings in correct order relative to auth signing (body finalized before HMAC)
-- [ ] **MAP-07**: Operator can configure passthrough mode (no mapping) as default for simple endpoints
+- [x] **MAP-07**: Operator can configure passthrough mode (no mapping) as default for simple endpoints
 
 ### Invoke Pipeline (PIPE)
 
@@ -115,12 +115,12 @@
 | AUTH-05 | Phase 1 | Complete |
 | AUTH-06 | Phase 1 | Complete |
 | MAP-01 | Phase 2 | Complete |
-| MAP-02 | Phase 2 | Pending |
-| MAP-03 | Phase 2 | Pending |
-| MAP-04 | Phase 2 | Pending |
+| MAP-02 | Phase 2 | Complete |
+| MAP-03 | Phase 2 | Complete |
+| MAP-04 | Phase 2 | Complete |
 | MAP-05 | Phase 2 | Complete |
 | MAP-06 | Phase 3 | Pending |
-| MAP-07 | Phase 2 | Pending |
+| MAP-07 | Phase 2 | Complete |
 | PIPE-01 | Phase 3 | Pending |
 | PIPE-02 | Phase 3 | Pending |
 | PIPE-03 | Phase 3 | Pending |

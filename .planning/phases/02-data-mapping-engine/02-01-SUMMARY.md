@@ -80,7 +80,7 @@ Each task was committed atomically:
 2. **Task 2: Extend ConnectorSpecParser parse/serialize and mutual exclusion** - `5fe8dec` (feat)
 3. **Task 3: MappingSpecValidator publish-time validation** - `cfaf7d7` (feat)
 
-**Plan metadata:** `a2c9aee` (docs)
+**Plan metadata:** `bad4dbf` (docs)
 
 ## Files Created/Modified
 
