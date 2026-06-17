@@ -3,7 +3,17 @@
  */
 package com.suntek.apiconnector.engine;
 
+import com.suntek.apiconnector.domain.model.AuthContextSnapshot;
+import com.suntek.apiconnector.domain.model.EndpointMeta;
+import com.suntek.apiconnector.domain.model.MappingContext;
+import com.suntek.apiconnector.domain.model.MappingDirection;
+import com.suntek.apiconnector.mapping.DeclarativeRuleExecutor;
+import com.suntek.apiconnector.mapping.ErrorMappingTrigger;
+import com.suntek.apiconnector.mapping.GroovyMappingScriptProvider;
+import com.suntek.apiconnector.mapping.MappingEngineImpl;
 import com.suntek.apiconnector.mapping.ResolvedMapping;
+import com.suntek.apiconnector.mapping.spi.MappingEngine;
+import com.suntek.apiconnector.scripting.ScriptCompileService;
 import com.suntek.apiconnector.spec.model.ConnectorSpec;
 import com.suntek.apiconnector.spec.model.DirectionMappingSpec;
 import com.suntek.apiconnector.spec.model.EndpointSpec;
@@ -87,6 +97,128 @@ class MappingConfigResolverTest {
         assertTrue(resolved.hasResponse());
         assertTrue(MappingConfigResolver.hasAnyMapping(resolved));
         assertNotNull(resolved.response().script());
+    }
+
+    @Test
+    void connectorErrorMappingUsedWhenEndpointHasNoErrorOverride() {
+        MappingRule connectorErrorRename = renameRule("$.errCode", "$.code");
+        ConnectorSpec spec = connectorSpec(new MappingSpec(
+                null,
+                null,
+                new DirectionMappingSpec(List.of(connectorErrorRename), null)));
+        EndpointSpec endpoint = spec.endpoints().getFirst();
+
+        ResolvedMapping resolved = MappingConfigResolver.resolve(spec, endpoint);
+
+        assertTrue(resolved.hasError());
+        assertEquals(connectorErrorRename, resolved.error().rules().getFirst());
+    }
+
+    @Test
+    void endpointErrorOverrideReplacesConnectorErrorRules() {
+        MappingRule connectorError = renameRule("$.errCode", "$.code");
+        MappingRule endpointError = renameRule("$.vendorCode", "$.code");
+        ConnectorSpec spec = connectorSpec(
+                new MappingSpec(
+                        null,
+                        null,
+                        new DirectionMappingSpec(List.of(connectorError), null)),
+                new MappingSpec(
+                        null,
+                        null,
+                        new DirectionMappingSpec(List.of(endpointError), null)));
+        EndpointSpec endpoint = spec.endpoints().getFirst();
+
+        ResolvedMapping resolved = MappingConfigResolver.resolve(spec, endpoint);
+
+        assertEquals(endpointError, resolved.error().rules().getFirst());
+    }
+
+    @Test
+    void endpointRequestScriptOverrideDoesNotClearConnectorErrorRules() {
+        MappingRule connectorError = renameRule("$.errCode", "$.code");
+        ConnectorSpec spec = connectorSpec(
+                new MappingSpec(
+                        null,
+                        null,
+                        new DirectionMappingSpec(List.of(connectorError), null)),
+                new MappingSpec(
+                        new DirectionMappingSpec(null, "return [:]"),
+                        null,
+                        null));
+        EndpointSpec endpoint = spec.endpoints().getFirst();
+
+        ResolvedMapping resolved = MappingConfigResolver.resolve(spec, endpoint);
+
+        assertTrue(resolved.hasRequest());
+        assertTrue(resolved.hasError());
+        assertEquals(connectorError, resolved.error().rules().getFirst());
+    }
+
+    @Test
+    void resolveAndMapErrorProducesEndpointSpecificErrorTemplate() throws Exception {
+        MappingRule connectorError = renameRule("$.errCode", "$.code");
+        MappingRule endpointError = renameRule("$.vendorCode", "$.code");
+        ConnectorSpec spec = connectorSpec(
+                new MappingSpec(
+                        null,
+                        null,
+                        new DirectionMappingSpec(List.of(connectorError), null)),
+                new MappingSpec(
+                        null,
+                        null,
+                        new DirectionMappingSpec(List.of(endpointError), null)));
+        EndpointSpec endpoint = spec.endpoints().getFirst();
+        ResolvedMapping resolved = MappingConfigResolver.resolve(spec, endpoint);
+
+        MappingEngine engine = new MappingEngineImpl(
+                new DeclarativeRuleExecutor(),
+                new GroovyMappingScriptProvider(new ScriptCompileService()));
+        MappingContext ctx = new MappingContext(
+                "TEST",
+                MappingDirection.ERROR,
+                "{\"vendorCode\":\"EP99\",\"errCode\":\"ignored\"}",
+                new AuthContextSnapshot("TEST", List.of("none"), Map.of(), Map.of()),
+                new EndpointMeta(endpoint.id(), endpoint.method(), endpoint.path()));
+
+        String output = engine.mapError(ctx, resolved, new ErrorMappingTrigger(500, false));
+
+        assertEquals("EP99", com.jayway.jsonpath.JsonPath.read(output, "$.code"));
+    }
+
+    @Test
+    void transformOnlySpecHasAnyMappingFalse() {
+        ConnectorSpec spec = new ConnectorSpec(
+                "TEST",
+                "1.0.0",
+                "https://vendor.example.com",
+                "HTTP",
+                Map.of("type", "none"),
+                List.of(new EndpointSpec(
+                        "ep1",
+                        "GET",
+                        "/ep1",
+                        null,
+                        true,
+                        null,
+                        null,
+                        null)),
+                new ResponseSpec("true", "$", "$", "$"),
+                null,
+                null,
+                List.of(Map.of("type", "sm4_encrypt")));
+
+        assertFalse(MappingConfigResolver.hasAnyMapping(spec, spec.endpoints().getFirst()));
+    }
+
+    @Test
+    void emptyMappingObjectHasAnyMappingFalse() {
+        ConnectorSpec spec = connectorSpec(new MappingSpec(null, null, null));
+
+        assertFalse(MappingConfigResolver.hasAnyMapping(spec, spec.endpoints().getFirst()));
+        ResolvedMapping resolved = MappingConfigResolver.resolve(spec, spec.endpoints().getFirst());
+        assertFalse(resolved.hasRequest());
+        assertFalse(resolved.hasError());
     }
 
     private static ConnectorSpec connectorSpec(MappingSpec mapping) {
