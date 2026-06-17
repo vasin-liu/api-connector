@@ -5,6 +5,9 @@ package com.suntek.apiconnector.auth.profile;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.suntek.apiconnector.auth.cache.CachedToken;
+import com.suntek.apiconnector.auth.cache.TokenCache;
+import com.suntek.apiconnector.auth.cache.TokenCacheKey;
 import com.suntek.apiconnector.auth.context.AuthContext;
 import com.suntek.apiconnector.auth.context.AuthOutcome;
 import com.suntek.apiconnector.auth.spi.AuthProvider;
@@ -19,7 +22,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * OAuth2 Client Credentials，将 access_token 写入 Query（百度文心等）。
@@ -31,11 +33,17 @@ public class OAuth2TokenInQueryAuthProvider implements AuthProvider {
     private static final String DEFAULT_CLIENT_SECRET_REF = "appSecret";
     private static final String DEFAULT_TOKEN_PARAM = "access_token";
 
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(30))
-            .build();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final ConcurrentHashMap<String, CachedToken> tokenCache = new ConcurrentHashMap<>();
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
+    private final TokenCache tokenCache;
+
+    public OAuth2TokenInQueryAuthProvider(TokenCache tokenCache) {
+        this.tokenCache = tokenCache;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(30))
+                .build();
+        this.objectMapper = new ObjectMapper();
+    }
 
     @Override
     public String profileType() {
@@ -52,20 +60,11 @@ public class OAuth2TokenInQueryAuthProvider implements AuthProvider {
     }
 
     private String resolveAccessToken(AuthContext context) {
-        String cacheKey = context.code3rd();
-        CachedToken cached = tokenCache.get(cacheKey);
-        if (cached != null && cached.expiresAt.isAfter(Instant.now().plusSeconds(30))) {
-            return cached.accessToken;
-        }
-        synchronized (this) {
-            cached = tokenCache.get(cacheKey);
-            if (cached != null && cached.expiresAt.isAfter(Instant.now().plusSeconds(30))) {
-                return cached.accessToken;
-            }
-            CachedToken fresh = fetchToken(context);
-            tokenCache.put(cacheKey, fresh);
-            return fresh.accessToken;
-        }
+        String scope = stringConfig(context.authConfig(), "scope", "");
+        TokenCacheKey cacheKey = new TokenCacheKey(context.code3rd(), TYPE, scope);
+        CachedToken cached = tokenCache.getOrRefresh(cacheKey, () -> fetchToken(context));
+        populateExt(context.ext(), cached);
+        return cached.accessToken();
     }
 
     private CachedToken fetchToken(AuthContext context) {
@@ -94,17 +93,29 @@ public class OAuth2TokenInQueryAuthProvider implements AuthProvider {
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IllegalStateException("OAuth2 token request failed: HTTP " + response.statusCode());
             }
-            JsonNode json = objectMapper.readTree(response.body());
+            String rawJson = response.body();
+            JsonNode json = objectMapper.readTree(rawJson);
             String accessToken = json.path("access_token").asText(null);
             if (accessToken == null || accessToken.isBlank()) {
                 throw new IllegalStateException("OAuth2 response missing access_token");
             }
             long expiresIn = json.path("expires_in").asLong(3600);
-            return new CachedToken(accessToken, Instant.now().plusSeconds(expiresIn));
+            return new CachedToken(accessToken, Instant.now().plusSeconds(expiresIn), rawJson);
         } catch (IllegalStateException ex) {
             throw ex;
         } catch (Exception ex) {
             throw new IllegalStateException("OAuth2 token request error: " + ex.getMessage(), ex);
+        }
+    }
+
+    private static void populateExt(Map<String, Object> ext, CachedToken token) {
+        if (ext == null) {
+            return;
+        }
+        ext.put("accessToken", token.accessToken());
+        ext.put("tokenExpiresAt", token.expiresAt().toString());
+        if (token.rawResponse() != null) {
+            ext.put("oauthRawResponse", token.rawResponse());
         }
     }
 
@@ -126,15 +137,5 @@ public class OAuth2TokenInQueryAuthProvider implements AuthProvider {
             throw new IllegalStateException("Missing credential for ref: " + ref);
         }
         return value;
-    }
-
-    private static final class CachedToken {
-        private final String accessToken;
-        private final Instant expiresAt;
-
-        private CachedToken(String accessToken, Instant expiresAt) {
-            this.accessToken = accessToken;
-            this.expiresAt = expiresAt;
-        }
     }
 }

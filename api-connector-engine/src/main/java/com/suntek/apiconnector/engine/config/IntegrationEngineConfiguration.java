@@ -6,6 +6,7 @@
 package com.suntek.apiconnector.engine.config;
 
 import com.suntek.apiconnector.auth.AuthEngine;
+import com.suntek.apiconnector.auth.cache.TokenCache;
 import com.suntek.apiconnector.auth.profile.AkskHmacSha256V1AuthProvider;
 import com.suntek.apiconnector.auth.profile.ApiKeyQueryAuthProvider;
 import com.suntek.apiconnector.auth.profile.BearerStaticAuthProvider;
@@ -116,13 +117,18 @@ public class IntegrationEngineConfiguration {
     }
 
     @Bean
-    public OAuth2ClientCredentialsAuthProvider oauth2ClientCredentialsAuthProvider() {
-        return new OAuth2ClientCredentialsAuthProvider();
+    public TokenCache tokenCache() {
+        return new TokenCache();
     }
 
     @Bean
-    public OAuth2TokenInQueryAuthProvider oauth2TokenInQueryAuthProvider() {
-        return new OAuth2TokenInQueryAuthProvider();
+    public OAuth2ClientCredentialsAuthProvider oauth2ClientCredentialsAuthProvider(TokenCache tokenCache) {
+        return new OAuth2ClientCredentialsAuthProvider(tokenCache);
+    }
+
+    @Bean
+    public OAuth2TokenInQueryAuthProvider oauth2TokenInQueryAuthProvider(TokenCache tokenCache) {
+        return new OAuth2TokenInQueryAuthProvider(tokenCache);
     }
 
     @Bean
