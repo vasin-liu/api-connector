@@ -35,7 +35,15 @@
 5. Integration test: OAuth/HMAC vendor issues correctly signed outbound request
 6. Legacy-used auth types inventory documented from system-thirdpart audit
 
-**Plans:** 0 (run `/gsd-plan-phase 1` to create)
+**Plans:** 6 plans in 5 waves
+
+| Wave | Plans | What it builds |
+|------|-------|----------------|
+| 1 | 01 | `api-connector-scripting` module + compile-once Groovy cache |
+| 2 | 02 | Groovy auth provider + spec extensions (`groovy_auth_script`) |
+| 3 | 03 | Central TokenCache + publish-time compile/contract validation |
+| 4 | 04, 05 | AuthContextSnapshot carry-forward; structured auth errors |
+| 5 | 06 | Wave 1 L2 profiles + legacy auth inventory + WireMock proof |
 
 ---
 
