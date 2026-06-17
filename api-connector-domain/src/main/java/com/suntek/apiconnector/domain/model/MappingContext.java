@@ -32,7 +32,6 @@ public record MappingContext(
     /**
      * Parses {@link #rawBody()} as a JSON object map for script bindings.
      */
-    @SuppressWarnings("unchecked")
     public Map<String, Object> bodyAsMap() {
         if (rawBody == null || rawBody.isBlank()) {
             return Map.of();
