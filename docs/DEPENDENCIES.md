@@ -48,8 +48,8 @@
 
 ## 维护
 
-版本集中在 `its-integration-dependencies/pom.xml` 的 `<properties>` 中维护。升级后执行：
+版本集中在 `api-connector-dependencies/pom.xml` 的 `<properties>` 中维护。升级后执行：
 
 ```bash
-mvn -q clean verify -DskipTests
+.\mvnw-jdk21.ps1 -q clean verify -DskipTests
 ```

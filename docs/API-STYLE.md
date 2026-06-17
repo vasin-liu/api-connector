@@ -161,7 +161,7 @@ Swagger UI 配置（`application.yml`）：
 
 ### Spec 端点文档（代码即文档）
 
-**内置连接器**不再维护 `connectors/*.yaml`，而是在 `its-integration-connectors` 模块用 Java Catalog 接口定义：
+**内置连接器**不再维护 `connectors/*.yaml`，而是在 `api-connector-connectors` 模块用 Java Catalog 接口定义：
 
 ```java
 @CatalogConnector(code3rd = "IDPS", baseUrl = "https://idps.example.com")
@@ -178,7 +178,7 @@ public interface IdpsConnectorCatalog {
 - 可选 `@CatalogEndpoint(summary=..., group=...)`、`@QueryNames` 补充业务语义
 - **控制台/UI 保存的 Spec** 同样自动 enrich，**勿再写 YAML `doc` 块**（已忽略）
 
-新增内置厂家：在 `its-integration-connectors` 增加 Catalog 接口并注册到 `BuiltinConnectorCatalogs`。
+新增内置厂家：在 `api-connector-connectors` 增加 Catalog 接口并注册到 `BuiltinConnectorCatalogs`。
 
 ### Catalog 受管（内置厂家）
 

@@ -1,8 +1,8 @@
 # UI 配置规范
 
-管理端与 **its-integration** 运行时之间的 UI/数据契约。
+管理端与 **api-connector** 运行时之间的 UI/数据契约。
 
-**部署形态：** 控制台由独立模块 `its-integration-ui` 构建，与 `its-integration-app` 打在同一 fat JAR、共用 `server.port`（见 [UI-MODULE.md](./UI-MODULE.md)）。与 `system-manage` 的对接为 P2 持久化阶段。与 [profile-registry.md](./profile-registry.md)、[CONNECTOR-PERSISTENCE.md](./CONNECTOR-PERSISTENCE.md) 配套使用。
+**部署形态：** 控制台由独立模块 `api-connector-ui` 构建，与 `api-connector-app` 打在同一 fat JAR、共用 `server.port`（见 [UI-MODULE.md](./UI-MODULE.md)）。与 `system-manage` 的对接为 P2 持久化阶段。与 [profile-registry.md](./profile-registry.md)、[CONNECTOR-PERSISTENCE.md](./CONNECTOR-PERSISTENCE.md) 配套使用。
 
 ## 1. 设计原则
 
@@ -136,7 +136,7 @@
 ```text
 ClientInfo（凭证层） + ConnectorSpec（行为层）
          ↓
-its-integration ConnectorRegistry.register(spec, credentials)
+api-connector ConnectorRegistry.register(spec, credentials)
 ```
 
 凭证 Map 固定键：
@@ -321,7 +321,7 @@ POST /client/{id}/integration-config/publish
 POST /client/{id}/integration-config/trial
 ```
 
-manage 转发至 `its-integration` Proxy API，避免浏览器跨域；请求体同 §2.2 步骤④。
+manage 转发至 `api-connector` Proxy API，避免浏览器跨域；请求体同 §2.2 步骤④。
 
 ### 5.5 Profile 元数据
 

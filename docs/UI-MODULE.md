@@ -4,8 +4,8 @@
 
 | 模块 | 职责 |
 |------|------|
-| `its-integration-ui` | Vue 3 + Vite 管理控制台；产出 `classpath:/static/console/**` JAR |
-| `its-integration-app` | 依赖 `ui` + `api`，Spring Boot fat JAR **单端口** 发布 |
+| `api-connector-ui` | Vue 3 + Vite 管理控制台；产出 `classpath:/static/console/**` JAR |
+| `api-connector-app` | 依赖 `ui` + `api`，Spring Boot fat JAR **单端口** 发布 |
 
 ## 访问路径（默认端口 19090）
 
@@ -21,16 +21,16 @@
 
 ```bash
 # 全量（含 npm 构建 UI，需网络下载 Node）
-mvn clean package -DskipTests
+.\mvnw-jdk21.ps1 clean package -DskipTests
 
 # 仅 Java，跳过前端（使用 ui 模块内占位 static）
-mvn clean package -DskipTests -Dskip.ui=true
+.\mvnw-jdk21.ps1 clean package -DskipTests -Dskip.ui=true
 ```
 
 ## 前端本地开发
 
 ```bash
-cd its-integration-ui/frontend
+cd api-connector-ui/frontend
 npm install
 npm run dev
 ```
@@ -40,15 +40,15 @@ Vite 已将 `/api` 代理到 `http://localhost:19090`，需同时启动 Spring B
 ## 打包原理
 
 ```
-its-integration-ui.jar
+api-connector-ui.jar
   └── static/console/index.html, assets/*
            ↑
-its-integration-app.jar (repackage)
+api-connector-app.jar (repackage)
   └── BOOT-INF/classes/static/console/**   ← prepare-package 解压 ui 静态资源
 ```
 
-`prepare-package` 阶段由 `maven-dependency-plugin` 将 `its-integration-ui` 中的 `static/**` 解压到
-`its-integration-app/target/classes`，再随 Spring Boot repackage 打入 fat JAR；ui 依赖 JAR 不再重复嵌套进 `BOOT-INF/lib`。
+`prepare-package` 阶段由 `maven-dependency-plugin` 将 `api-connector-ui` 中的 `static/**` 解压到
+`api-connector-app/target/classes`，再随 Spring Boot repackage 打入 fat JAR；ui 依赖 JAR 不再重复嵌套进 `BOOT-INF/lib`。
 
 `UiWebConfiguration` 注册 `/console/**` 资源链，SPA 路由回退 `index.html`。
 

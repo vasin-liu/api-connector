@@ -11,23 +11,23 @@
 $env:JAVA_HOME = "E:\Home\vasin.GENSOKYO\sdk\zulu-jdk21.0.9"
 $env:Path = "$env:JAVA_HOME\bin;" + $env:Path
 java -version
-mvn clean package -DskipTests
+.\mvnw-jdk21.ps1 clean package -DskipTests
 ```
 
 ## 构建
 
 ```bash
 # 根目录
-mvn clean verify
+.\mvnw-jdk21.ps1 clean verify
 
 # 仅打包可运行应用
-mvn -pl its-integration-app -am package -DskipTests
+.\mvnw-jdk21.ps1 -pl api-connector-app -am package -DskipTests
 ```
 
 ## 本地运行
 
 ```bash
-java -jar its-integration-app/target/its-integration-app-1.0.0-SNAPSHOT.jar
+java -jar api-connector-app/target/api-connector-app-1.0.0-SNAPSHOT.jar
 ```
 
 默认端口 `19090`。示例连接器 `DEMO_NONE` 使用 https://httpbin.org（需外网）。
@@ -44,7 +44,7 @@ DEMO_NONE_PUBLIC_KEY=
 
 ## 新增连接器（L1 配置）
 
-1. 在 `its-integration-app/src/main/resources/connectors/` 新增 `xxx.yaml`
+1. 在 `api-connector-app/src/main/resources/connectors/` 新增 `xxx.yaml`
 2. 参考 [profile-registry.md](./profile-registry.md) 选择 `auth.type`
 3. 重启应用或调用后续将提供的「热加载」API
 
@@ -57,7 +57,7 @@ DEMO_NONE_PUBLIC_KEY=
 
 ## 新增 Auth Profile（L2 代码）
 
-1. 在 `its-integration-auth` 下实现 `AuthProvider`
+1. 在 `api-connector-auth` 下实现 `AuthProvider`
 2. `profileType()` 返回注册表 ID（如 `oauth2_client_credentials`）
 3. 声明为 Spring `@Bean` 或由 `IntegrationEngineConfiguration` 扫描注册
 4. 补充单元测试与 [profile-registry.md](./profile-registry.md) 条目
@@ -83,7 +83,7 @@ DEMO_NONE_PUBLIC_KEY=
 - 文件头使用公司版权块（见现有 Java 文件）
 - 非显而易见逻辑用 `//` 注释
 
-## 管理控制台（`its-integration-ui`）
+## 管理控制台（`api-connector-ui`）
 
 | 文档 | 内容 |
 |------|------|
@@ -91,7 +91,7 @@ DEMO_NONE_PUBLIC_KEY=
 
 ```bash
 # 前端热更新（另开终端启动 app）
-cd its-integration-ui/frontend && npm install && npm run dev
+cd api-connector-ui/frontend && npm install && npm run dev
 ```
 
 访问：`http://localhost:19090/console/`

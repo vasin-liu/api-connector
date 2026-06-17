@@ -1,6 +1,6 @@
 # ITS Integration Platform 文档
 
-本目录包含 **its-integration**（ITS 第三方通用对接平台）的全部设计与开发文档。
+本目录包含 **api-connector**（ITS 第三方通用对接平台）的全部设计与开发文档。
 
 ## 文档索引
 
@@ -10,7 +10,7 @@
 | [DEVELOPER.md](./DEVELOPER.md) | 本地构建、运行、扩展 Profile |
 | [profile-registry.md](./profile-registry.md) | 认证 Profile 注册表（A1–A28） |
 | [UI-CONFIG-SPEC.md](./UI-CONFIG-SPEC.md) | 管理端 UI 向导、动态表单、试调与聚合 API |
-| [UI-MODULE.md](./UI-MODULE.md) | 独立 `its-integration-ui` 模块、同 JAR 同端口部署 |
+| [UI-MODULE.md](./UI-MODULE.md) | 独立 `api-connector-ui` 模块、同 JAR 同端口部署 |
 | [CONNECTOR-PERSISTENCE.md](./CONNECTOR-PERSISTENCE.md) | 独立持久化 DDL 与管理 API |
 | [THIRDPART-MIGRATION.md](./THIRDPART-MIGRATION.md) | 从 system-thirdpart 迁移到 Connector Spec |
 | [API-STYLE.md](./API-STYLE.md) | 运行时 Invoke API 约定与 OpenAPI 阅读顺序 |
@@ -22,27 +22,27 @@
 ## 模块结构
 
 ```
-its-integration/
-├── its-integration-dependencies   # BOM
-├── its-integration-parent         # 父 POM / 插件
-├── its-integration-domain           # 领域模型（无 Spring）
-├── its-integration-spec             # Connector YAML 解析
-├── its-integration-auth             # Auth Profile / Pipeline
-├── its-integration-engine           # 编排 + HTTP 传输
-├── its-integration-connectors       # 内置厂家 Java Catalog（代码即 Spec + OpenAPI）
-├── its-integration-api              # REST API + 控制台 BFF
-├── its-integration-ui               # Vue 控制台（静态资源 JAR）
-├── its-integration-persistence      # 独立 JDBC 配置存储
-├── its-integration-app              # Spring Boot 启动（依赖 ui，单端口）
+api-connector/
+├── api-connector-dependencies   # BOM
+├── api-connector-parent         # 父 POM / 插件
+├── api-connector-domain           # 领域模型（无 Spring）
+├── api-connector-spec             # Connector YAML 解析
+├── api-connector-auth             # Auth Profile / Pipeline
+├── api-connector-engine           # 编排 + HTTP 传输
+├── api-connector-connectors       # 内置厂家 Java Catalog（代码即 Spec + OpenAPI）
+├── api-connector-api              # REST API + 控制台 BFF
+├── api-connector-ui               # Vue 控制台（静态资源 JAR）
+├── api-connector-persistence      # 独立 JDBC 配置存储
+├── api-connector-app              # Spring Boot 启动（依赖 ui，单端口）
 └── docs/                            # 本目录
 ```
 
 ## 快速启动
 
 ```bash
-cd D:\Work\99_Code\ITS\its-integration
-mvn -q -pl its-integration-app -am package -DskipTests
-java -jar its-integration-app/target/its-integration-app-1.0.0-SNAPSHOT.jar
+cd D:\Work\99_Code\01_Java\api-connector
+.\mvnw-jdk21.ps1 -q -pl api-connector-app -am package -DskipTests
+java -jar api-connector-app/target/api-connector-app-1.0.0-SNAPSHOT.jar
 ```
 
 管理控制台：`http://localhost:19090/console/`

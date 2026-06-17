@@ -14,17 +14,17 @@
 ```mermaid
 flowchart TB
     subgraph interfaces [interfaces]
-        API[its-integration-api]
-        UI[its-integration-ui]
-        APP[its-integration-app]
+        API[api-connector-api]
+        UI[api-connector-ui]
+        APP[api-connector-app]
     end
     subgraph application [application]
-        ENG[its-integration-engine]
+        ENG[api-connector-engine]
     end
     subgraph domain_core [domain]
-        DOM[its-integration-domain]
-        SPEC[its-integration-spec]
-        AUTH[its-integration-auth]
+        DOM[api-connector-domain]
+        SPEC[api-connector-spec]
+        AUTH[api-connector-auth]
     end
 
     APP --> API --> ENG
@@ -75,8 +75,8 @@ sequenceDiagram
 
 | 扩展点 | 接口 | 用途 |
 |--------|------|------|
-| AuthProvider | `com.suntek.integration.auth.spi.AuthProvider` | 标准/私有认证 |
-| HttpTransport | `com.suntek.integration.engine.transport.HttpTransport` | HTTP 实现可替换 |
+| AuthProvider | `com.suntek.apiconnector.auth.spi.AuthProvider` | 标准/私有认证 |
+| HttpTransport | `com.suntek.apiconnector.engine.transport.HttpTransport` | HTTP 实现可替换 |
 | IntegrationOrchestrator | `domain.spi.IntegrationOrchestrator` | 编排策略 |
 | ConnectorRegistry | `engine.ConnectorRegistry` | Spec 来源（内存/本地 JDBC） |
 | ConnectorConfigStore | `engine.store.ConnectorConfigStore` | 独立持久化端口 |

@@ -1,10 +1,10 @@
 # system-thirdpart 能力迁移指南
 
-本文档说明如何将 `suntek-system/system-thirdpart` 中「每厂家一套 Client/Controller」的实现，迁移到 **its-integration** 独立平台的 **Connector Spec + Auth Profile** 模型。
+本文档说明如何将 `suntek-system/system-thirdpart` 中「每厂家一套 Client/Controller」的实现，迁移到 **api-connector** 独立平台的 **Connector Spec + Auth Profile** 模型。
 
 ## 1. 原则
 
-| 旧模式 (thirdpart) | 新模式 (its-integration) |
+| 旧模式 (thirdpart) | 新模式 (api-connector) |
 |--------------------|---------------------------|
 | `XxxClient extends BaseClient` | `connectors/{code3rd}.yaml` + 凭证 |
 | `XxxController` 暴露业务 API | 统一 Invoke API（见 [API-STYLE.md](./API-STYLE.md)） |
@@ -15,7 +15,7 @@
 ## 2. 迁移步骤（新厂家 / 存量厂家）
 
 1. **识别认证 Profile** — 对照 [profile-registry.md](./profile-registry.md)，优先 L1/L2 YAML。
-2. **编写 Connector Spec** — 内置厂家用 Java Catalog（`its-integration-connectors`）；自定义/试验性可用 YAML 或控制台 JSON（仅 id/method/path，文档自动推导）。
+2. **编写 Connector Spec** — 内置厂家用 Java Catalog（`api-connector-connectors`）；自定义/试验性可用 YAML 或控制台 JSON（仅 id/method/path，文档自动推导）。
 3. **登记端点** — 将原 Client 中 `get/post` 路径整理为 `endpoints[]`。
 4. **控制台发布** — `http://localhost:19090/console/` 填写凭证并发布。
 5. **业务侧改调用** — 由直连 thirdpart 改为调用 integration Invoke API（见 [API-STYLE.md](./API-STYLE.md)）。

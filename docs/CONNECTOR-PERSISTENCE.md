@@ -1,6 +1,6 @@
 # 连接器持久化（独立应用）
 
-`its-integration` **不依赖** `system-manage` 或 `system-thirdpart`。配置保存在本应用数据库（默认 H2 文件 `./data/integration`），运行时由 `ConnectorRegistry` 热加载。
+`api-connector` **不依赖** `system-manage` 或 `system-thirdpart`。配置保存在本应用数据库（默认 H2 文件 `./data/integration`），运行时由 `ConnectorRegistry` 热加载。
 
 ## 1. 数据模型
 
@@ -9,7 +9,7 @@
 | `IT_CONNECTOR_CLIENT` | 连接信息：code3rd、host、appId、appSecret、publicKey、代理等 |
 | `IT_CONNECTOR_SPEC` | 协议行为：SPEC_JSON（与 YAML 同构）、发布状态、版本 |
 
-DDL：`its-integration-persistence/src/main/resources/db/schema.sql`
+DDL：`api-connector-persistence/src/main/resources/db/schema.sql`
 
 ## 2. 配置源 `integration.persistence.source`
 

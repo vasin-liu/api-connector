@@ -2,7 +2,7 @@
 
 **状态:** Accepted  
 **日期:** 2026-06-03  
-**决策:** 在 `D:\Work\99_Code\ITS\its-integration` 新建 JDK 21 多模块工程，采用 Connector Spec + Auth Profile + 统一代理 API。
+**决策:** 在 `D:\Work\99_Code\01_Java\api-connector` 新建 JDK 21 多模块工程，采用 Connector Spec + Auth Profile + 统一代理 API。
 
 ## 上下文
 
@@ -14,7 +14,7 @@ ITS 现有 `system-thirdpart` 以「每厂家一套 Client/Controller」扩展�
 2. **结构:** Maven 多模块（dependencies BOM + domain/spec/auth/engine/api/app），对齐 `traffic-brain-framework` 的 BOM 实践。
 3. **扩展策略:** 声明式 Spec 为主（L1/L2），SPI 为辅（L3，控制在 ≤10 个插件）。
 4. **对外 API:** `POST /api/v1/integrations/{code3rd}/endpoints/{endpointId}/invoke`（推荐）；`/proxy` 已废弃。
-5. **文档:** 全部置于 `its-integration/docs/`。
+5. **文档:** 全部置于 `api-connector/docs/`。
 
 ## 后果
 
