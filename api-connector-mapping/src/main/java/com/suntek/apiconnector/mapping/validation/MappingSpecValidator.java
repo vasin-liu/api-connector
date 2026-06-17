@@ -5,6 +5,9 @@ package com.suntek.apiconnector.mapping.validation;
 
 import com.jayway.jsonpath.JsonPath;
 import com.suntek.apiconnector.mapping.TransformStepRegistry;
+import com.suntek.apiconnector.mapping.transform.Sm4DecryptTransformStep;
+import com.suntek.apiconnector.mapping.transform.Sm4EncryptTransformStep;
+import com.suntek.apiconnector.mapping.transform.StubTransformStep;
 import com.suntek.apiconnector.spec.model.ConnectorSpec;
 import com.suntek.apiconnector.spec.model.DirectionMappingSpec;
 import com.suntek.apiconnector.spec.model.EndpointSpec;
@@ -13,11 +16,19 @@ import com.suntek.apiconnector.spec.model.MappingRule;
 import com.suntek.apiconnector.spec.model.MappingSpec;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Publish-time validation for declarative mapping rules and {@code transform[]} steps (D-04, D-10, D-30).
  */
 public final class MappingSpecValidator {
+
+    /** Transform types known to Phase 2 when no registry is injected (D-20). */
+    private static final Set<String> BUILTIN_TRANSFORM_TYPES = Set.of(
+            Sm4EncryptTransformStep.TYPE,
+            Sm4DecryptTransformStep.TYPE,
+            StubTransformStep.BUSINESS_ENVELOPE);
 
     private final TransformStepRegistry transformStepRegistry;
 
@@ -43,6 +54,65 @@ public final class MappingSpecValidator {
                     validateMappingSpec(endpoint.mappingOverride(), prefix);
                 }
             }
+        }
+        validateTransforms(spec.transform());
+    }
+
+    private void validateTransforms(List<Map<String, Object>> transforms) {
+        if (transforms == null || transforms.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < transforms.size(); i++) {
+            validateTransformStep(transforms.get(i), "transform[" + i + "]");
+        }
+    }
+
+    private void validateTransformStep(Map<String, Object> step, String stepPath) {
+        if (step == null) {
+            throw new IllegalArgumentException(stepPath + " step is required");
+        }
+        Object typeValue = step.get("type");
+        String type = typeValue == null ? null : String.valueOf(typeValue).trim();
+        if (type == null || type.isBlank()) {
+            throw new IllegalArgumentException(stepPath + ".type is required");
+        }
+        if (!isTransformTypeRegistered(type)) {
+            throw new IllegalArgumentException(stepPath + ".type unknown transform: " + type);
+        }
+        switch (type) {
+            case Sm4EncryptTransformStep.TYPE, Sm4DecryptTransformStep.TYPE -> validateSm4Step(step, stepPath, type);
+            case StubTransformStep.BUSINESS_ENVELOPE -> validateBusinessEnvelopeStep(step, stepPath);
+            default -> {
+                // Registered custom step with no extra schema constraints.
+            }
+        }
+    }
+
+    private boolean isTransformTypeRegistered(String type) {
+        if (transformStepRegistry != null) {
+            return transformStepRegistry.isRegistered(type);
+        }
+        return BUILTIN_TRANSFORM_TYPES.contains(type);
+    }
+
+    private static void validateSm4Step(Map<String, Object> step, String stepPath, String type) {
+        Object keyRef = step.get("keyRef");
+        if (keyRef == null || String.valueOf(keyRef).isBlank()) {
+            throw new IllegalArgumentException(
+                    stepPath + ".keyRef is required for " + type + " (Pitfall 6)");
+        }
+        if (step.containsKey("key")) {
+            throw new IllegalArgumentException(
+                    stepPath + ".key inline secret is forbidden for " + type + "; use keyRef (Pitfall 6)");
+        }
+    }
+
+    private static void validateBusinessEnvelopeStep(Map<String, Object> step, String stepPath) {
+        Object enabled = step.get("enabled");
+        if (enabled != null && Boolean.parseBoolean(String.valueOf(enabled))) {
+            throw new IllegalArgumentException(
+                    stepPath + " business_envelope transform is unsupported in Phase 2 (D-20 deferred); "
+                            + "set enabled:false");
         }
     }
 
