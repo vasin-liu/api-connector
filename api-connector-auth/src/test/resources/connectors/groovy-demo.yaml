@@ -5,7 +5,7 @@ protocol: HTTP
 auth:
   type: groovy_auth_script
   script: |
-    import com.suntek.apiconnector.auth.context.AuthOutcome
+    import com.suntek.apiconnector.domain.model.AuthOutcome
     new AuthOutcome([Authorization: 'Bearer test-token'], [:], null)
 endpoints:
   - id: invoke

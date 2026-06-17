@@ -6,7 +6,7 @@
 package com.suntek.apiconnector.auth.spi;
 
 import com.suntek.apiconnector.auth.context.AuthContext;
-import com.suntek.apiconnector.auth.context.AuthOutcome;
+import com.suntek.apiconnector.domain.model.AuthOutcome;
 
 /**
  * 认证策略 SPI：将 Profile 配置应用于即将发出的 HTTP 请求。

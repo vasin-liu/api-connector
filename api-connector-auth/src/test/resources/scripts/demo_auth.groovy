@@ -1,3 +1,3 @@
-import com.suntek.apiconnector.auth.context.AuthOutcome
+import com.suntek.apiconnector.domain.model.AuthOutcome
 
 new AuthOutcome([Authorization: 'Bearer test-token'], [:], null)

@@ -7,7 +7,7 @@ package com.suntek.apiconnector.engine;
 
 import com.suntek.apiconnector.auth.AuthEngine;
 import com.suntek.apiconnector.auth.context.AuthContext;
-import com.suntek.apiconnector.auth.context.AuthOutcome;
+import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.domain.model.InvocationRequest;
 import com.suntek.apiconnector.domain.model.InvocationResult;
 import com.suntek.apiconnector.domain.spi.IntegrationOrchestrator;

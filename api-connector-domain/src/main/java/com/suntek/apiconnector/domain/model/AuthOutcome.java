@@ -3,7 +3,7 @@
  * Site: https://www.pcitech.com/
  * Address: PCI Intelligent Building, No.2 Xincen Fourth Road, Tianhe District, Guangzhou, China (Zip code: 510653)
  */
-package com.suntek.apiconnector.auth.context;
+package com.suntek.apiconnector.domain.model;
 
 import java.util.Map;
 

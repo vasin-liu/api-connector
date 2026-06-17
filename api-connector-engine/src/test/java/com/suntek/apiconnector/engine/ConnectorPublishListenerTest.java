@@ -33,7 +33,7 @@ class ConnectorPublishListenerTest {
         tokenCache.getOrRefresh(key, () -> new CachedToken("seed", Instant.now().plusSeconds(3600)));
 
         String script = """
-                import com.suntek.apiconnector.auth.context.AuthOutcome
+                import com.suntek.apiconnector.domain.model.AuthOutcome
                 new AuthOutcome([Authorization: 'Bearer publish-token'], [:], null)
                 """;
         ConnectorSpec spec = groovyConnectorSpec("GROOVY_DEMO", script, null);
@@ -56,11 +56,11 @@ class ConnectorPublishListenerTest {
         ConnectorPublishListener listener = new ConnectorPublishListener(compileService, new TokenCache());
 
         String connectorScript = """
-                import com.suntek.apiconnector.auth.context.AuthOutcome
+                import com.suntek.apiconnector.domain.model.AuthOutcome
                 new AuthOutcome([Authorization: 'Bearer connector'], [:], null)
                 """;
         String endpointScript = """
-                import com.suntek.apiconnector.auth.context.AuthOutcome
+                import com.suntek.apiconnector.domain.model.AuthOutcome
                 new AuthOutcome([Authorization: 'Bearer endpoint'], [:], null)
                 """;
         ConnectorSpec spec = groovyConnectorSpec(
@@ -105,7 +105,7 @@ class ConnectorPublishListenerTest {
         ConnectorRegistry registry = new ConnectorRegistry(listener);
 
         String script = """
-                import com.suntek.apiconnector.auth.context.AuthOutcome
+                import com.suntek.apiconnector.domain.model.AuthOutcome
                 new AuthOutcome([Authorization: 'Bearer registry'], [:], null)
                 """;
         registry.save(groovyConnectorSpec("REGISTRY_DEMO", script, null), Map.of(), ConnectorSpecStatus.PUBLISHED);

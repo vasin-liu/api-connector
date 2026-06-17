@@ -1,7 +1,7 @@
 package com.suntek.apiconnector.auth.profile;
 
 import com.suntek.apiconnector.auth.context.AuthContext;
-import com.suntek.apiconnector.auth.context.AuthOutcome;
+import com.suntek.apiconnector.domain.model.AuthOutcome;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;

@@ -1,7 +1,7 @@
 package com.suntek.apiconnector.auth.profile;
 
 import com.suntek.apiconnector.auth.context.AuthContext;
-import com.suntek.apiconnector.auth.context.AuthOutcome;
+import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +22,7 @@ class GroovyAuthScriptProviderTest {
         Map<String, Object> auth = Map.of(
                 "type", "groovy_auth_script",
                 "script", """
-                        import com.suntek.apiconnector.auth.context.AuthOutcome
+                        import com.suntek.apiconnector.domain.model.AuthOutcome
                         new AuthOutcome([Authorization: 'Bearer test-token'], [:], null)
                         """);
         AuthContext context = new AuthContext(

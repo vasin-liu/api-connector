@@ -4,7 +4,7 @@
 package com.suntek.apiconnector.auth.spi;
 
 import com.suntek.apiconnector.auth.context.AuthContext;
-import com.suntek.apiconnector.auth.context.AuthOutcome;
+import com.suntek.apiconnector.domain.model.AuthOutcome;
 
 /**
  * Groovy auth script entry contract.

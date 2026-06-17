@@ -9,7 +9,7 @@ import com.suntek.apiconnector.auth.cache.CachedToken;
 import com.suntek.apiconnector.auth.cache.TokenCache;
 import com.suntek.apiconnector.auth.cache.TokenCacheKey;
 import com.suntek.apiconnector.auth.context.AuthContext;
-import com.suntek.apiconnector.auth.context.AuthOutcome;
+import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.auth.spi.AuthProvider;
 
 import java.net.URI;

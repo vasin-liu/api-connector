@@ -4,7 +4,7 @@
 package com.suntek.apiconnector.auth.profile;
 
 import com.suntek.apiconnector.auth.context.AuthContext;
-import com.suntek.apiconnector.auth.context.AuthOutcome;
+import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.auth.spi.AuthProvider;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
 import com.suntek.apiconnector.scripting.ScriptCompileException;

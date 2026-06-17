@@ -5,7 +5,7 @@ package com.suntek.apiconnector.engine;
 
 import com.suntek.apiconnector.auth.cache.TokenCache;
 import com.suntek.apiconnector.auth.context.AuthContext;
-import com.suntek.apiconnector.auth.context.AuthOutcome;
+import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.auth.spi.AuthScript;
 import com.suntek.apiconnector.scripting.ScriptCompileException;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
