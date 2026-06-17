@@ -4,6 +4,7 @@
 package com.suntek.apiconnector.mapping.spi;
 
 import com.suntek.apiconnector.domain.model.MappingContext;
+import com.suntek.apiconnector.mapping.ErrorMappingTrigger;
 import com.suntek.apiconnector.mapping.ResolvedMapping;
 
 /**
@@ -22,8 +23,10 @@ public interface MappingEngine {
     String mapResponse(MappingContext ctx, ResolvedMapping config);
 
     /**
-     * Maps error response body using resolved error direction config.
-     * Error trigger evaluation is deferred to Plan 05 (D-15).
+     * Maps error response body using resolved error direction config (D-15, D-18).
+     *
+     * <p>Caller should invoke only when {@link com.suntek.apiconnector.mapping.ErrorMappingTrigger#shouldMapError}
+     * and {@link ResolvedMapping#hasError()} are both true; otherwise vendor body is returned unchanged.</p>
      */
-    String mapError(MappingContext ctx, ResolvedMapping config);
+    String mapError(MappingContext ctx, ResolvedMapping config, ErrorMappingTrigger trigger);
 }

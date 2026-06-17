@@ -30,8 +30,14 @@ public final class MappingEngineImpl implements MappingEngine {
     }
 
     @Override
-    public String mapError(MappingContext ctx, ResolvedMapping config) {
-        return mapDirection(ctx, config != null ? config.error() : null);
+    public String mapError(MappingContext ctx, ResolvedMapping config, ErrorMappingTrigger trigger) {
+        if (config == null || !config.hasError()) {
+            return ctx.rawBody();
+        }
+        if (!ErrorMappingTrigger.shouldMapError(trigger)) {
+            return ctx.rawBody();
+        }
+        return mapDirection(ctx, config.error());
     }
 
     private String mapDirection(MappingContext ctx, ResolvedMapping.ResolvedDirection direction) {
