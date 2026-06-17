@@ -1,0 +1,51 @@
+# State: API Connector
+
+**Last updated:** 2026-06-17
+**Current phase:** Not started (Phase 1 next)
+**Project mode:** yolo | granularity: standard | execution: parallel
+
+## Project Reference
+
+See: `.planning/PROJECT.md` (updated 2026-06-17)
+
+**Core value:** Zero-disruption replacement of system-thirdpart via configurable auth plugins and data mapping.
+**Current focus:** Phase 1 — Auth Plugin Architecture
+
+## Progress
+
+| Phase | Name | Status | Plans |
+|-------|------|--------|-------|
+| 1 | Auth Plugin Architecture | ○ Pending | 0/0 |
+| 2 | Data Mapping Engine | ○ Pending | 0/0 |
+| 3 | Orchestrator Pipeline Integration | ○ Pending | 0/0 |
+| 4 | Admin BFF & Gateway Metadata | ○ Pending | 0/0 |
+| 5 | React Console & Observability | ○ Pending | 0/0 |
+| 6 | Legacy Compat Test Harness | ○ Pending | 0/0 |
+| 7 | Vendor Migration Wave 1 | ○ Pending | 0/0 |
+| 8 | Vendor Migration Wave 2 & Cutover | ○ Pending | 0/0 |
+
+**Requirements:** 0/44 complete
+
+## Decisions
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-06-17 | Drop-in compat + all-at-once cutover | Caller impact minimization |
+| 2026-06-17 | Gateway owns caller auth | Platform architecture |
+| 2026-06-17 | Java auth plugins + Groovy scripts | Standard + legacy flexibility |
+| 2026-06-17 | React + Ant Design replaces Vue | Team stack mandate |
+| 2026-06-17 | Vertical MVP phase structure | End-to-end slices per phase |
+
+## Blockers
+
+(None)
+
+## Notes
+
+- Codebase map available: `.planning/codebase/`
+- Research complete: `.planning/research/SUMMARY.md`
+- Old module reference: `D:\Work\99_Code\ITS\suntek-system\system-thirdpart` (read-only for contract capture, no code reuse)
+
+---
+
+*State initialized: 2026-06-17*
