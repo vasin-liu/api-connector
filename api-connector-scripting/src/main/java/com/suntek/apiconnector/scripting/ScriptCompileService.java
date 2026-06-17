@@ -57,6 +57,11 @@ public final class ScriptCompileService {
         return cache;
     }
 
+    /** Visible for integration tests asserting compile-once cache behavior (AUTH-03). */
+    public int compiledScriptCacheSize() {
+        return cache.size();
+    }
+
     static String sha256Hex(String source) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

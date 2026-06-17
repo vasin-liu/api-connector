@@ -160,4 +160,19 @@ class ProductionConnectorCatalogsTest {
         assertThat(BuiltinConnectorCatalogs.managedCode3rds())
                 .contains("IDPS", "GAODE_OPEN_PLATFORM", "GAODE_TRAFFIC", "BAIDU_MAP", "BAIDU_WENXIN", "BaiduGpt");
     }
+
+    /**
+     * Wave 1 auth profile IDs per docs/legacy-auth-inventory.md (D-03, ROADMAP SC#6).
+     */
+    @Test
+    void wave1CatalogAuthTypesMatchLegacyInventory() {
+        assertThat(BuiltinConnectorCatalogs.catalogSpec("IDPS").auth()).containsEntry("type", "aksk_hmac_sha256_v1");
+        assertThat(BuiltinConnectorCatalogs.catalogSpec("GAODE_OPEN_PLATFORM").auth())
+                .containsEntry("type", "api_key_query");
+        assertThat(BuiltinConnectorCatalogs.catalogSpec("GAODE_TRAFFIC").auth())
+                .containsEntry("type", "gaode_traffic_hmac_v1");
+        assertThat(BuiltinConnectorCatalogs.catalogSpec("BAIDU_MAP").auth()).containsEntry("type", "api_key_query");
+        assertThat(BuiltinConnectorCatalogs.catalogSpec("BAIDU_WENXIN").auth())
+                .containsEntry("type", "oauth2_token_in_query");
+    }
 }
