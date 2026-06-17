@@ -17,6 +17,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
@@ -83,6 +84,36 @@ class InvokeIntegrationTest {
         assertTrue(response.body().contains("\"success\":true"));
         assertTrue(response.body().contains("\"httpStatus\":200"));
         assertTrue(response.body().contains("http://demo/get"));
+    }
+
+    @Test
+    void invokeUnknownAuthProfileReturnsStructuredError() throws Exception {
+        ConnectorSpec demo = registry.require("DEMO_NONE");
+        ConnectorSpec badAuth = new ConnectorSpec(
+                demo.code3rd(),
+                demo.version(),
+                "http://localhost:" + wireMock.getPort(),
+                demo.protocol(),
+                Map.of("type", "unknown_auth_type"),
+                demo.endpoints(),
+                demo.response(),
+                demo.transport(),
+                demo.transform());
+        registry.save(badAuth, null, ConnectorSpecStatus.PUBLISHED);
+
+        HttpResponse<String> response = httpClient.send(
+                HttpRequest.newBuilder()
+                        .uri(URI.create(baseUrl()
+                                + "/api/v1/integrations/DEMO_NONE/endpoints/echoGet/invoke"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(400, response.statusCode());
+        assertTrue(response.body().contains("\"code\":\"AUTH_PROFILE_MISSING\""));
+        assertTrue(response.body().contains("profileType"));
+        assertTrue(response.body().contains("unknown_auth_type"));
     }
 
     @Test

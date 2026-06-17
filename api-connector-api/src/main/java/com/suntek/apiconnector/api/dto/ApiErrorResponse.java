@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.Map;
+
 /**
  * 平台 API 错误响应。
  */
@@ -20,4 +22,7 @@ public class ApiErrorResponse {
 
     @Schema(description = "人类可读说明")
     private String message;
+
+    @Schema(description = "结构化诊断详情（profileType、code3rd、line 等）")
+    private Map<String, Object> details;
 }
