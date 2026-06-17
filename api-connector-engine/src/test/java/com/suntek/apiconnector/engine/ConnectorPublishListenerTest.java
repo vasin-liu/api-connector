@@ -132,6 +132,7 @@ class ConnectorPublishListenerTest {
                 endpoints,
                 new ResponseSpec("$.success == true", "$.obj", "$.msg", "$.code"),
                 null,
+                null,
                 null);
     }
 }

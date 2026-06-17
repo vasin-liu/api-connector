@@ -85,6 +85,7 @@ class InvokeIntegrationTest {
                 demo.endpoints(),
                 demo.response(),
                 demo.transport(),
+                demo.mapping(),
                 demo.transform());
         registry.save(rebound, null, ConnectorSpecStatus.PUBLISHED);
     }
@@ -117,6 +118,7 @@ class InvokeIntegrationTest {
                 demo.endpoints(),
                 demo.response(),
                 demo.transport(),
+                demo.mapping(),
                 demo.transform());
         registry.save(badAuth, null, ConnectorSpecStatus.PUBLISHED);
 
@@ -235,6 +237,7 @@ class InvokeIntegrationTest {
                 List.of(new EndpointSpec("invoke", "GET", "/api/demo", null, true)),
                 new ResponseSpec(null, "$.ok", null, null),
                 null,
+                null,
                 null);
 
         int cacheSizeBefore = scriptCompileService.compiledScriptCacheSize();
@@ -269,6 +272,7 @@ class InvokeIntegrationTest {
                 spec.endpoints(),
                 spec.response(),
                 spec.transport(),
+                spec.mapping(),
                 spec.transform());
     }
 

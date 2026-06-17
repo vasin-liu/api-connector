@@ -41,6 +41,7 @@ public final class EndpointDocumentation {
                 endpoints,
                 spec.response(),
                 spec.transport(),
+                spec.mapping(),
                 spec.transform());
     }
 
@@ -60,7 +61,8 @@ public final class EndpointDocumentation {
                 endpoint.bodyTemplate(),
                 endpoint.enabled(),
                 doc,
-                endpoint.authOverride());
+                endpoint.authOverride(),
+                endpoint.mappingOverride());
     }
 
     public static String humanizeId(String id) {

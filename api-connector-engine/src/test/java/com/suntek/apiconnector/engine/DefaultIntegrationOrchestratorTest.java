@@ -37,6 +37,7 @@ class DefaultIntegrationOrchestratorTest {
                 List.of(new EndpointSpec("echo", "GET", "/echo", null, true)),
                 new ResponseSpec("$.success == true", "$.obj", "$.msg", "$.code"),
                 null,
+                null,
                 null);
         registry.register(spec, Map.of());
 
@@ -92,6 +93,7 @@ class DefaultIntegrationOrchestratorTest {
                 List.of(new EndpointSpec("api", "GET", "/api", null, true)),
                 new ResponseSpec("true", "$", "$", "$"),
                 null,
+                null,
                 null);
         registry.register(spec, Map.of());
 
@@ -139,6 +141,7 @@ class DefaultIntegrationOrchestratorTest {
                 connectorAuth,
                 List.of(new EndpointSpec("ep", "GET", "/ep", null, true, null, override)),
                 new ResponseSpec("true", "$", "$", "$"),
+                null,
                 null,
                 null);
         registry.register(spec, Map.of());

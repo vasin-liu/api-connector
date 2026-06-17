@@ -53,6 +53,7 @@ public final class CatalogConnectorScanner {
                 endpoints,
                 responseSpec(catalogInterface.getAnnotation(CatalogResponse.class)),
                 Map.of(),
+                null,
                 List.of());
     }
 

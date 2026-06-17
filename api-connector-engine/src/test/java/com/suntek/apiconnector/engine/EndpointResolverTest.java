@@ -21,6 +21,7 @@ class EndpointResolverTest {
                         "roadSpeeds", "GET", "/api/v2/traffic-aware/road-aware/speeds", null, true)),
                 null,
                 null,
+                null,
                 null);
     }
 

@@ -26,6 +26,7 @@ class AuthConfigResolverTest {
                 List.of(new EndpointSpec("ep1", "GET", "/ep1", null, true, null, override)),
                 new ResponseSpec("true", "$", "$", "$"),
                 null,
+                null,
                 null);
         EndpointSpec endpoint = spec.endpoints().getFirst();
 
@@ -46,6 +47,7 @@ class AuthConfigResolverTest {
                 connectorAuth,
                 List.of(),
                 new ResponseSpec("true", "$", "$", "$"),
+                null,
                 null,
                 null);
 

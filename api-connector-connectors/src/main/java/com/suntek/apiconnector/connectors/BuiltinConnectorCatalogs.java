@@ -79,6 +79,7 @@ public final class BuiltinConnectorCatalogs {
                 spec.endpoints(),
                 spec.response(),
                 spec.transport(),
+                spec.mapping(),
                 spec.transform());
     }
 

@@ -91,6 +91,7 @@ public class ConnectorBootstrapConfiguration {
                 spec.endpoints(),
                 spec.response(),
                 spec.transport(),
+                spec.mapping(),
                 spec.transform());
     }
 }

@@ -66,6 +66,7 @@ public final class CatalogManagedSpecMerger {
                 catalog.endpoints(),
                 catalog.response(),
                 catalog.transport(),
+                catalog.mapping(),
                 catalog.transform());
     }
 }

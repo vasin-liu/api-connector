@@ -66,6 +66,7 @@ class LegacyCompatIntegrationTest {
                 idps.endpoints(),
                 idps.response(),
                 idps.transport(),
+                idps.mapping(),
                 idps.transform());
         registry.save(rebound, null, ConnectorSpecStatus.PUBLISHED);
     }

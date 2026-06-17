@@ -61,6 +61,7 @@ public final class ConnectorSpecParser {
                 endpoints,
                 response,
                 map(connector.get("transport")),
+                null,
                 list(connector.get("transform"))));
     }
 

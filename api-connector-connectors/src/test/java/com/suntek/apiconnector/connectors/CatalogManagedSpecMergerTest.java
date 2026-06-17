@@ -23,6 +23,7 @@ class CatalogManagedSpecMergerTest {
                 java.util.List.of(),
                 null,
                 java.util.Map.of(),
+                null,
                 java.util.List.of());
 
         ConnectorSpec merged = CatalogManagedSpecMerger.forRuntime(stored);

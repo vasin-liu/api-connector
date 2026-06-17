@@ -25,6 +25,7 @@ public final class ConnectorSpec {
     private final List<EndpointSpec> endpoints;
     private final ResponseSpec response;
     private final Map<String, Object> transport;
+    private final MappingSpec mapping;
     private final List<Map<String, Object>> transform;
 
     public ConnectorSpec(
@@ -36,6 +37,7 @@ public final class ConnectorSpec {
             List<EndpointSpec> endpoints,
             ResponseSpec response,
             Map<String, Object> transport,
+            MappingSpec mapping,
             List<Map<String, Object>> transform) {
         this.code3rd = code3rd;
         this.version = version;
@@ -45,6 +47,7 @@ public final class ConnectorSpec {
         this.endpoints = endpoints;
         this.response = response;
         this.transport = transport;
+        this.mapping = mapping;
         this.transform = transform;
     }
 
@@ -78,6 +81,10 @@ public final class ConnectorSpec {
 
     public Map<String, Object> transport() {
         return transport;
+    }
+
+    public MappingSpec mapping() {
+        return mapping;
     }
 
     public List<Map<String, Object>> transform() {

@@ -23,6 +23,26 @@ public final class EndpointSpec {
     private final Boolean enabled;
     private final EndpointDocSpec doc;
     private final Map<String, Object> authOverride;
+    private final MappingSpec mappingOverride;
+
+    public EndpointSpec(
+            String id,
+            String method,
+            String path,
+            String bodyTemplate,
+            Boolean enabled,
+            EndpointDocSpec doc,
+            Map<String, Object> authOverride,
+            MappingSpec mappingOverride) {
+        this.id = id;
+        this.method = method;
+        this.path = path;
+        this.bodyTemplate = bodyTemplate;
+        this.enabled = enabled;
+        this.doc = doc;
+        this.authOverride = authOverride;
+        this.mappingOverride = mappingOverride;
+    }
 
     public EndpointSpec(
             String id,
@@ -32,13 +52,7 @@ public final class EndpointSpec {
             Boolean enabled,
             EndpointDocSpec doc,
             Map<String, Object> authOverride) {
-        this.id = id;
-        this.method = method;
-        this.path = path;
-        this.bodyTemplate = bodyTemplate;
-        this.enabled = enabled;
-        this.doc = doc;
-        this.authOverride = authOverride;
+        this(id, method, path, bodyTemplate, enabled, doc, authOverride, null);
     }
 
     public EndpointSpec(
@@ -48,12 +62,12 @@ public final class EndpointSpec {
             String bodyTemplate,
             Boolean enabled,
             EndpointDocSpec doc) {
-        this(id, method, path, bodyTemplate, enabled, doc, null);
+        this(id, method, path, bodyTemplate, enabled, doc, null, null);
     }
 
     /** 兼容旧构造（无 doc）。 */
     public EndpointSpec(String id, String method, String path, String bodyTemplate, Boolean enabled) {
-        this(id, method, path, bodyTemplate, enabled, null, null);
+        this(id, method, path, bodyTemplate, enabled, null, null, null);
     }
 
     public String id() {
@@ -82,5 +96,9 @@ public final class EndpointSpec {
 
     public Map<String, Object> authOverride() {
         return authOverride;
+    }
+
+    public MappingSpec mappingOverride() {
+        return mappingOverride;
     }
 }
