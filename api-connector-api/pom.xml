@@ -22,6 +22,10 @@
         </dependency>
         <dependency>
             <groupId>com.suntek.apiconnector</groupId>
+            <artifactId>api-connector-mapping</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.suntek.apiconnector</groupId>
             <artifactId>api-connector-connectors</artifactId>
         </dependency>
         <dependency>

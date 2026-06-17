@@ -6,6 +6,7 @@ package com.suntek.apiconnector.api;
 import com.suntek.apiconnector.api.dto.ApiErrorResponse;
 import com.suntek.apiconnector.api.invoke.InvokeRateLimitException;
 import com.suntek.apiconnector.auth.exception.AuthException;
+import com.suntek.apiconnector.mapping.exception.MappingException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -49,6 +50,19 @@ public class RuntimeApiExceptionHandler {
         HttpStatus status = switch (ex.code()) {
             case AUTH_PROFILE_MISSING, AUTH_SCRIPT_COMPILE_ERROR -> HttpStatus.BAD_REQUEST;
             case UPSTREAM_AUTH_FAILED, AUTH_SCRIPT_RUNTIME_ERROR -> HttpStatus.BAD_GATEWAY;
+        };
+        return ResponseEntity.status(status).body(ApiErrorResponse.builder()
+                .code(ex.code().name())
+                .message(ex.getMessage())
+                .details(ex.details())
+                .build());
+    }
+
+    @ExceptionHandler(MappingException.class)
+    public ResponseEntity<ApiErrorResponse> handleMapping(MappingException ex) {
+        HttpStatus status = switch (ex.code()) {
+            case MAPPING_SPEC_INVALID, MAPPING_SCRIPT_COMPILE_ERROR, TRANSFORM_UNSUPPORTED -> HttpStatus.BAD_REQUEST;
+            case MAPPING_SCRIPT_RUNTIME_ERROR, MAPPING_COERCE_FAILED -> HttpStatus.BAD_GATEWAY;
         };
         return ResponseEntity.status(status).body(ApiErrorResponse.builder()
                 .code(ex.code().name())
