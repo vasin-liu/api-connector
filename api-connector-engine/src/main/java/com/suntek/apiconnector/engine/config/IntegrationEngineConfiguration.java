@@ -23,6 +23,10 @@ import com.suntek.apiconnector.engine.DefaultIntegrationOrchestrator;
 import com.suntek.apiconnector.engine.ResponseEvaluator;
 import com.suntek.apiconnector.engine.transport.HttpTransport;
 import com.suntek.apiconnector.engine.transport.JdkHttpTransport;
+import com.suntek.apiconnector.mapping.DeclarativeRuleExecutor;
+import com.suntek.apiconnector.mapping.GroovyMappingScriptProvider;
+import com.suntek.apiconnector.mapping.MappingEngineImpl;
+import com.suntek.apiconnector.mapping.spi.MappingEngine;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -151,6 +155,23 @@ public class IntegrationEngineConfiguration {
     @Bean
     public GroovyAuthScriptProvider groovyAuthScriptProvider(ScriptCompileService scriptCompileService) {
         return new GroovyAuthScriptProvider(scriptCompileService);
+    }
+
+    @Bean
+    public DeclarativeRuleExecutor declarativeRuleExecutor() {
+        return new DeclarativeRuleExecutor();
+    }
+
+    @Bean
+    public GroovyMappingScriptProvider groovyMappingScriptProvider(ScriptCompileService scriptCompileService) {
+        return new GroovyMappingScriptProvider(scriptCompileService);
+    }
+
+    @Bean
+    public MappingEngine mappingEngine(
+            DeclarativeRuleExecutor declarativeRuleExecutor,
+            GroovyMappingScriptProvider groovyMappingScriptProvider) {
+        return new MappingEngineImpl(declarativeRuleExecutor, groovyMappingScriptProvider);
     }
 
     // Wave 1 L2 profiles (oauth2_password, bearer_from_login, sm3_header_sign_v1) are inventory-gated
