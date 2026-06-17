@@ -67,6 +67,20 @@ public final class EndpointResolver {
         return new ResolvedInvocation(null, method.trim().toUpperCase(), normalizePath(path));
     }
 
+    /**
+     * Resolves a spec endpoint by id, or returns null when {@code endpointId} is blank.
+     *
+     * @param spec       connector specification
+     * @param endpointId endpoint id from the invocation request
+     * @return matching endpoint, or null
+     */
+    public static EndpointSpec endpoint(ConnectorSpec spec, String endpointId) {
+        if (endpointId == null || endpointId.isBlank()) {
+            return null;
+        }
+        return requireEndpoint(spec, endpointId.trim());
+    }
+
     private static EndpointSpec requireEndpoint(ConnectorSpec spec, String endpointId) {
         if (spec.endpoints() == null || spec.endpoints().isEmpty()) {
             throw new IllegalArgumentException("Connector has no endpoints: " + spec.code3rd());

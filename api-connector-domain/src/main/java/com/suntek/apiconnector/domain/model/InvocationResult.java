@@ -6,6 +6,7 @@
 package com.suntek.apiconnector.domain.model;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Result of a third-party invocation (raw body retained for troubleshooting).
@@ -26,6 +27,8 @@ public final class InvocationResult {
     private final Object parsedData;
     private final long latencyMillis;
     private final Map<String, String> responseHeaders;
+    private final AuthContextSnapshot authSnapshot;
+    private final AuthOutcome authOutcome;
 
     public InvocationResult(
             int httpStatus,
@@ -49,6 +52,32 @@ public final class InvocationResult {
             Object parsedData,
             long latencyMillis,
             Map<String, String> responseHeaders) {
+        this(
+                httpStatus,
+                success,
+                vendorCode,
+                vendorMessage,
+                rawBody,
+                rawBodyEncoding,
+                parsedData,
+                latencyMillis,
+                responseHeaders,
+                null,
+                null);
+    }
+
+    public InvocationResult(
+            int httpStatus,
+            boolean success,
+            String vendorCode,
+            String vendorMessage,
+            String rawBody,
+            String rawBodyEncoding,
+            Object parsedData,
+            long latencyMillis,
+            Map<String, String> responseHeaders,
+            AuthContextSnapshot authSnapshot,
+            AuthOutcome authOutcome) {
         this.httpStatus = httpStatus;
         this.success = success;
         this.vendorCode = vendorCode;
@@ -58,6 +87,8 @@ public final class InvocationResult {
         this.parsedData = parsedData;
         this.latencyMillis = latencyMillis;
         this.responseHeaders = responseHeaders;
+        this.authSnapshot = authSnapshot;
+        this.authOutcome = authOutcome;
     }
 
     public int httpStatus() {
@@ -94,5 +125,13 @@ public final class InvocationResult {
 
     public Map<String, String> responseHeaders() {
         return responseHeaders;
+    }
+
+    public Optional<AuthContextSnapshot> authSnapshot() {
+        return Optional.ofNullable(authSnapshot);
+    }
+
+    public Optional<AuthOutcome> authOutcome() {
+        return Optional.ofNullable(authOutcome);
     }
 }
