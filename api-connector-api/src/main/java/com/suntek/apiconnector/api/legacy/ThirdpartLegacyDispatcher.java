@@ -8,11 +8,15 @@ import com.suntek.apiconnector.api.dto.ProxyInvokeResponse;
 import com.suntek.apiconnector.api.invoke.InvokeContext;
 import com.suntek.apiconnector.api.invoke.InvokeHttpResponseMapper;
 import com.suntek.apiconnector.api.service.IntegrationInvokeService;
+import com.suntek.apiconnector.engine.ConnectorRegistry;
+import com.suntek.apiconnector.spec.model.ConnectorSpec;
+import com.suntek.apiconnector.spec.model.EndpointSpec;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -25,14 +29,17 @@ public class ThirdpartLegacyDispatcher {
     private final IntegrationInvokeService invokeService;
     private final InvokeHttpResponseMapper responseMapper;
     private final LegacyCompatResponseFormatter responseFormatter;
+    private final ConnectorRegistry registry;
 
     public ThirdpartLegacyDispatcher(
             IntegrationInvokeService invokeService,
             InvokeHttpResponseMapper responseMapper,
-            LegacyCompatResponseFormatter responseFormatter) {
+            LegacyCompatResponseFormatter responseFormatter,
+            ConnectorRegistry registry) {
         this.invokeService = invokeService;
         this.responseMapper = responseMapper;
         this.responseFormatter = responseFormatter;
+        this.registry = registry;
     }
 
     public ResponseEntity<String> forwardGet(
@@ -71,6 +78,11 @@ public class ThirdpartLegacyDispatcher {
         request.setPath(path);
         request.setQuery(query != null ? query : Map.of());
         request.setBody(body);
+        // 03-03 (Option A / PIPE-02): when this already-adapted (method, path) unambiguously
+        // matches exactly one configured endpoint, supply its endpointId so the shared
+        // orchestrator runs request/response mapping (D-08). Zero or multiple matches leave
+        // endpointId null -> the engine's D-04 passthrough invariant is preserved unchanged.
+        resolveEndpointId(code3rd, method, path).ifPresent(request::setEndpointId);
         ProxyInvokeResponse invokeBody = invokeService.invoke(code3rd, request, InvokeContext.LEGACY);
         String payload = responseFormatter.format(invokeBody, style);
         int status = responseMapper.resolveLegacyHttpStatus(invokeBody);
@@ -106,5 +118,61 @@ public class ThirdpartLegacyDispatcher {
             return "/";
         }
         return path.startsWith("/") ? path : "/" + path;
+    }
+
+    /**
+     * Resolves the connector endpoint that uniquely matches an already-adapted (method, path).
+     *
+     * <p>03-03 / PIPE-02 (Option A): legacy routes historically dispatched with a null
+     * {@code endpointId}, which the engine treats as a mapping passthrough (D-04). This made
+     * legacy URLs that DO correspond to a configured, mapped endpoint silently skip mapping.
+     * Here we look up the connector's enabled endpoints and, only when exactly one matches the
+     * given (method, path), return its id so the caller can set it on the {@link ProxyInvokeRequest}.
+     *
+     * <p>Invariant preservation: zero matches (free-path/IDPS-style routes with no configured
+     * endpoint) or multiple matches both yield {@link Optional#empty()}, leaving {@code endpointId}
+     * null so the engine's passthrough behavior is unchanged — legacy-compat safe for every
+     * existing route. Any lookup failure (unknown connector, etc.) is swallowed to null for the
+     * same reason; the subsequent {@code invokeService.invoke} performs the authoritative lookup.
+     *
+     * @param code3rd connector code
+     * @param method  HTTP method of the adapted legacy request
+     * @param path    vendor path of the adapted legacy request (post alias/normalization, D-07)
+     * @return the uniquely matching endpoint id, or empty when ambiguous/absent
+     */
+    private Optional<String> resolveEndpointId(String code3rd, String method, String path) {
+        if (method == null || method.isBlank() || path == null || path.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            ConnectorSpec spec = registry.require(code3rd);
+            List<EndpointSpec> endpoints = spec.endpoints();
+            if (endpoints == null || endpoints.isEmpty()) {
+                return Optional.empty();
+            }
+            String wantedMethod = method.trim();
+            String wantedPath = normalizePath(path);
+            String matchedId = null;
+            for (EndpointSpec endpoint : endpoints) {
+                if (endpoint.enabled() != null && !endpoint.enabled()) {
+                    continue;
+                }
+                String endpointMethod = endpoint.method() != null ? endpoint.method() : "GET";
+                if (!endpointMethod.equalsIgnoreCase(wantedMethod)) {
+                    continue;
+                }
+                if (!normalizePath(endpoint.path()).equals(wantedPath)) {
+                    continue;
+                }
+                if (matchedId != null) {
+                    // Ambiguous: more than one endpoint maps to this (method, path) -> passthrough.
+                    return Optional.empty();
+                }
+                matchedId = endpoint.id();
+            }
+            return Optional.ofNullable(matchedId);
+        } catch (RuntimeException ex) {
+            return Optional.empty();
+        }
     }
 }
