@@ -42,6 +42,7 @@ public final class ConnectorPublishListener {
     private final ScriptCompileService scriptCompileService;
     private final TokenCache tokenCache;
     private final TransformStepRegistry transformStepRegistry;
+    private final ResolvedMappingCache resolvedMappingCache;
 
     public ConnectorPublishListener(ScriptCompileService scriptCompileService, TokenCache tokenCache) {
         this(scriptCompileService, tokenCache, null);
@@ -51,9 +52,26 @@ public final class ConnectorPublishListener {
             ScriptCompileService scriptCompileService,
             TokenCache tokenCache,
             TransformStepRegistry transformStepRegistry) {
+        this(scriptCompileService, tokenCache, transformStepRegistry, null);
+    }
+
+    /**
+     * Constructs the publish hook with mapping-cache invalidation (D-21).
+     *
+     * @param scriptCompileService  Groovy compile service
+     * @param tokenCache            OAuth token cache to evict on publish
+     * @param transformStepRegistry transform step registry for mapping-spec validation
+     * @param resolvedMappingCache  resolved-mapping cache to evict on publish; may be {@code null}
+     */
+    public ConnectorPublishListener(
+            ScriptCompileService scriptCompileService,
+            TokenCache tokenCache,
+            TransformStepRegistry transformStepRegistry,
+            ResolvedMappingCache resolvedMappingCache) {
         this.scriptCompileService = scriptCompileService;
         this.tokenCache = tokenCache;
         this.transformStepRegistry = transformStepRegistry;
+        this.resolvedMappingCache = resolvedMappingCache;
     }
 
     /**
@@ -74,6 +92,9 @@ public final class ConnectorPublishListener {
         validateMappingSpec(spec);
 
         tokenCache.evictForConnector(spec.code3rd());
+        if (resolvedMappingCache != null) {
+            resolvedMappingCache.evict(spec.code3rd());
+        }
 
         Set<String> compiledSources = new HashSet<>();
 

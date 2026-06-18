@@ -20,6 +20,7 @@ import com.suntek.apiconnector.domain.spi.IntegrationOrchestrator;
 import com.suntek.apiconnector.engine.ConnectorPublishListener;
 import com.suntek.apiconnector.engine.ConnectorRegistry;
 import com.suntek.apiconnector.engine.DefaultIntegrationOrchestrator;
+import com.suntek.apiconnector.engine.ResolvedMappingCache;
 import com.suntek.apiconnector.engine.ResponseEvaluator;
 import com.suntek.apiconnector.engine.transport.HttpTransport;
 import com.suntek.apiconnector.engine.transport.JdkHttpTransport;
@@ -58,8 +59,20 @@ public class IntegrationEngineConfiguration {
     public ConnectorPublishListener connectorPublishListener(
             ScriptCompileService scriptCompileService,
             TokenCache tokenCache,
-            TransformStepRegistry transformStepRegistry) {
-        return new ConnectorPublishListener(scriptCompileService, tokenCache, transformStepRegistry);
+            TransformStepRegistry transformStepRegistry,
+            ResolvedMappingCache resolvedMappingCache) {
+        return new ConnectorPublishListener(
+                scriptCompileService, tokenCache, transformStepRegistry, resolvedMappingCache);
+    }
+
+    /**
+     * Resolved-mapping cache Bean (D-21).
+     *
+     * @return resolved-mapping cache invalidated on connector publish
+     */
+    @Bean
+    public ResolvedMappingCache resolvedMappingCache() {
+        return new ResolvedMappingCache();
     }
 
     @Bean
