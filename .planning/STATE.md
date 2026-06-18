@@ -2,21 +2,21 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 02
-status: Ready to execute
-last_updated: "2026-06-18T03:03:55.849Z"
+current_phase: 03
+status: Executing Phase 03
+last_updated: "2026-06-18T04:41:20.495Z"
 progress:
   total_phases: 8
   completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 16
+  completed_plans: 13
   percent: 25
 ---
 
 # State: API Connector
 
 **Last updated:** 2026-06-17
-**Current phase:** 02
+**Current phase:** 03
 **Project mode:** yolo | granularity: standard | execution: parallel
 
 ## Project Reference
@@ -24,7 +24,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-06-17)
 
 **Core value:** Zero-disruption replacement of system-thirdpart via configurable auth plugins and data mapping.
-**Current focus:** Phase 02 — data-mapping-engine
+**Current focus:** Phase 03 — orchestrator-pipeline-integration
 
 ## Progress
 
@@ -32,14 +32,14 @@ See: `.planning/PROJECT.md` (updated 2026-06-17)
 |-------|------|--------|-------|
 | 1 | Auth Plugin Architecture | ● Complete | 6/6 |
 | 2 | Data Mapping Engine | ● Complete | 6/6 |
-| 3 | Orchestrator Pipeline Integration | ○ Pending | 0/0 |
+| 3 | Orchestrator Pipeline Integration | ◐ In Progress | 1/4 |
 | 4 | Admin BFF & Gateway Metadata | ○ Pending | 0/0 |
 | 5 | React Console & Observability | ○ Pending | 0/0 |
 | 6 | Legacy Compat Test Harness | ○ Pending | 0/0 |
 | 7 | Vendor Migration Wave 1 | ○ Pending | 0/0 |
 | 8 | Vendor Migration Wave 2 & Cutover | ○ Pending | 0/0 |
 
-**Requirements:** 0/44 complete
+**Requirements:** 12/44 complete
 
 ## Decisions
 
@@ -52,6 +52,8 @@ See: `.planning/PROJECT.md` (updated 2026-06-17)
 | 2026-06-17 | mappingOverride is full MappingSpec block per endpoint | Mirrors authOverride; per-direction override resolved in 02-03 |
 | 2026-06-18 | Transform pipeline is a distinct bean stage; orchestrator wires order in Phase 3 | ADR-002 D-20/D-21; prevents accidental crypto/auth reorder (MAP-06) |
 | 2026-06-18 | SM4 transform resolves key via keyRef credential, never inline | Pitfall 6 — no secrets in spec/DB/logs |
+| 2026-06-18 | Orchestrator finalizes request body (mapRequest + transform.applyRequest) BEFORE authenticate | MAP-06/D-01 — HMAC must sign the body actually sent to the vendor |
+| 2026-06-18 | Null endpointSpec (legacy raw-path dispatch) is a mapping passthrough | D-04 — no resolvable mapping key; transforms still apply via spec.transform() |
 
 ## Blockers
 
