@@ -121,7 +121,9 @@ public class DefaultIntegrationOrchestrator implements IntegrationOrchestrator {
                 && mappingEngine != null
                 && transformPipeline != null
                 && resolvedMappingCache != null;
-        ResolvedMapping resolvedMapping = pipelineActive
+        // D-04: a null endpointSpec (e.g. legacy raw-path dispatch) has no resolvable mapping key,
+        // so it stays a mapping passthrough; transforms still apply via spec.transform().
+        ResolvedMapping resolvedMapping = (pipelineActive && endpointSpec != null)
                 ? resolvedMappingCache.get(spec, endpointSpec)
                 : null;
         // D-04: passthrough endpoints (no configured mapping) never touch the mapping engine.
