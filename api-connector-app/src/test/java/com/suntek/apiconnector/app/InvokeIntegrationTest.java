@@ -5,7 +5,10 @@ import com.suntek.apiconnector.engine.ConnectorRegistry;
 import com.suntek.apiconnector.engine.ConnectorSpecStatus;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
 import com.suntek.apiconnector.spec.model.ConnectorSpec;
+import com.suntek.apiconnector.spec.model.DirectionMappingSpec;
 import com.suntek.apiconnector.spec.model.EndpointSpec;
+import com.suntek.apiconnector.spec.model.MappingRule;
+import com.suntek.apiconnector.spec.model.MappingSpec;
 import com.suntek.apiconnector.spec.model.ResponseSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.matching;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
@@ -260,6 +264,99 @@ class InvokeIntegrationTest {
         assertEquals(cacheSizeBefore + 1, scriptCompileService.compiledScriptCacheSize());
         wireMock.verify(2, getRequestedFor(urlPathEqualTo("/api/demo"))
                 .withHeader("Authorization", equalTo("Bearer groovy-cache-token")));
+    }
+
+    /**
+     * MAP-06 / SC#3: request mapping (a->b) runs BEFORE auth, so HMAC signs the mapped body
+     * and the vendor receives {@code $.b}.
+     */
+    @Test
+    void hmacSignsMappedRequestBody() throws Exception {
+        wireMock.stubFor(post(urlPathEqualTo("/post"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"ok\":true}")));
+
+        ConnectorSpec mapAksk = new ConnectorSpec(
+                "MAP_AKSK",
+                "1.0.0",
+                "http://localhost:" + wireMock.getPort(),
+                "HTTP",
+                Map.of("type", "aksk_hmac_sha256_v1"),
+                List.of(new EndpointSpec("echoPost", "POST", "/post", null, true)),
+                new ResponseSpec(null, "$", null, null),
+                null,
+                new MappingSpec(
+                        new DirectionMappingSpec(
+                                List.of(new MappingRule("rename", "$.a", "$.b", null, null, null)),
+                                null),
+                        null,
+                        null),
+                null);
+        registry.save(
+                mapAksk,
+                Map.of("publicKey", "ak-test", "appSecret", "sk-test"),
+                ConnectorSpecStatus.PUBLISHED);
+
+        HttpResponse<String> response = httpClient.send(
+                HttpRequest.newBuilder()
+                        .uri(URI.create(baseUrl()
+                                + "/api/v1/integrations/MAP_AKSK/endpoints/echoPost/invoke"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"body\":\"{\\\"a\\\":1}\"}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode());
+        wireMock.verify(postRequestedFor(urlPathEqualTo("/post"))
+                .withRequestBody(matchingJsonPath("$.b"))
+                .withHeader("X-Auth-Signature", matching("[0-9a-f]{64}")));
+    }
+
+    /**
+     * PIPE-01: unified invoke runs the full pipeline; response mapping renames vendor field
+     * into the returned body.
+     */
+    @Test
+    void unifiedInvokeRunsFullPipeline() throws Exception {
+        wireMock.stubFor(get(urlEqualTo("/full"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"raw\":\"hello\",\"ok\":true}")));
+
+        ConnectorSpec full = new ConnectorSpec(
+                "MAP_FULL",
+                "1.0.0",
+                "http://localhost:" + wireMock.getPort(),
+                "HTTP",
+                Map.of("type", "none"),
+                List.of(new EndpointSpec("full", "GET", "/full", null, true)),
+                new ResponseSpec("$.ok == true", "$", null, null),
+                null,
+                new MappingSpec(
+                        null,
+                        new DirectionMappingSpec(
+                                List.of(new MappingRule("rename", "$.raw", "$.mapped", null, null, null)),
+                                null),
+                        null),
+                null);
+        registry.save(full, Map.of(), ConnectorSpecStatus.PUBLISHED);
+
+        HttpResponse<String> response = httpClient.send(
+                HttpRequest.newBuilder()
+                        .uri(URI.create(baseUrl()
+                                + "/api/v1/integrations/MAP_FULL/endpoints/full/invoke"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("\"success\":true"));
+        assertTrue(response.body().contains("mapped"));
+        assertTrue(response.body().contains("hello"));
     }
 
     private static ConnectorSpec rebindBaseUrl(ConnectorSpec spec, int wireMockPort) {
