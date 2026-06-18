@@ -10,7 +10,7 @@
 |---|-------|------|--------------|------------------|
 | 1 | Auth Plugin Architecture | 6/6 | Complete   | 2026-06-17 |
 | 2 | Data Mapping Engine | 6/6 | Complete | 2026-06-18 |
-| 3 | Orchestrator Pipeline | 1/4 | In Progress|  |
+| 3 | Orchestrator Pipeline | 2/4 | In Progress|  |
 | 4 | Admin BFF & Gateway Metadata | Config APIs, publish flow, gateway route export | ADMIN-01..05, GW-01..03 | 8 |
 | 5 | React Console & Observability | Replace Vue UI; logs, metrics, health screens | UI-01..06, MON-01..04 | 10 |
 | 6 | Legacy Compat Test Harness | Golden-file contract tests as CI gate | TEST-01..04 | 4 |
@@ -100,7 +100,7 @@
 4. Audit log line emitted per invoke with code3rd, endpointId, duration, outcome, requestId
 5. Streaming endpoint still delivers chunks through pipeline without mapping buffer regression
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 | Wave | Plans | What it builds |
 |------|-------|----------------|
@@ -112,7 +112,7 @@ Plans:
 **Wave 1**
 
 - [x] 03-01-PLAN.md — Wire orchestrator pipeline (map→transform→auth, response mirror, cache, toggle) — MAP-06, PIPE-01
-- [ ] 03-02-PLAN.md — Correlation-id/MDC + audit requestId/outcome — PIPE-03
+- [x] 03-02-PLAN.md — Correlation-id/MDC + audit requestId/outcome — PIPE-03
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
