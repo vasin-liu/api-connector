@@ -77,6 +77,7 @@
 | 6 | 02-06 | TransformStep SPI + SM4 + JDBC publish integration test |
 
 **Cross-cutting constraints:**
+
 - Connector default + endpoint override resolution (D-01) across all mapping directions
 - Publish-time validation rejects invalid JSONPath/transforms (D-04, D-30)
 - Orchestrator invoke wiring deferred to Phase 3 (MAP-06, D-26)
@@ -107,10 +108,14 @@
 | 1 | 03-02 | Correlation-id capture + MDC, audit `requestId`/`outcome` extension (PIPE-03) |
 | 2 | 03-03 | Legacy vs unified core-result parity + no-double-mapping guard (PIPE-02) |
 | 2 | 03-04 | Streaming request-side pipeline, raw chunks, warn-once (PIPE-04) |
-
 Plans:
+**Wave 1**
+
 - [ ] 03-01-PLAN.md — Wire orchestrator pipeline (map→transform→auth, response mirror, cache, toggle) — MAP-06, PIPE-01
 - [ ] 03-02-PLAN.md — Correlation-id/MDC + audit requestId/outcome — PIPE-03
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 03-03-PLAN.md — Legacy/unified pipeline parity + envelope-only error guard — PIPE-02
 - [ ] 03-04-PLAN.md — Streaming request-side mapping, raw chunk passthrough — PIPE-04
 
