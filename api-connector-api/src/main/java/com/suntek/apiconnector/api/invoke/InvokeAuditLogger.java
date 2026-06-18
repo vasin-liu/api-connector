@@ -17,7 +17,8 @@ public class InvokeAuditLogger {
 
     public void log(InvokeAuditEvent event) {
         AUDIT.info(
-                "code3rd={} endpointId={} method={} path={} success={} vendorHttpStatus={} latencyMs={} client={} context={}",
+                "code3rd={} endpointId={} method={} path={} success={} vendorHttpStatus={} latencyMs={} client={} "
+                        + "context={} requestId={} outcome={}",
                 event.code3rd(),
                 event.endpointId(),
                 event.method(),
@@ -26,6 +27,8 @@ public class InvokeAuditLogger {
                 event.vendorHttpStatus(),
                 event.latencyMillis(),
                 event.clientAddress(),
-                event.context());
+                event.context(),
+                event.requestId(),
+                event.outcome());
     }
 }
