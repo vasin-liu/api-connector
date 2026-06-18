@@ -99,7 +99,20 @@
 4. Audit log line emitted per invoke with code3rd, endpointId, duration, outcome, requestId
 5. Streaming endpoint still delivers chunks through pipeline without mapping buffer regression
 
-**Plans:** 0
+**Plans:** 4 plans
+
+| Wave | Plans | What it builds |
+|------|-------|----------------|
+| 1 | 03-01 | Core unified pipeline: mapping/transform inserted around auth (MAP-06/PIPE-01), ResolvedMappingCache + publish invalidation, mapping-enabled toggle |
+| 1 | 03-02 | Correlation-id capture + MDC, audit `requestId`/`outcome` extension (PIPE-03) |
+| 2 | 03-03 | Legacy vs unified core-result parity + no-double-mapping guard (PIPE-02) |
+| 2 | 03-04 | Streaming request-side pipeline, raw chunks, warn-once (PIPE-04) |
+
+Plans:
+- [ ] 03-01-PLAN.md — Wire orchestrator pipeline (map→transform→auth, response mirror, cache, toggle) — MAP-06, PIPE-01
+- [ ] 03-02-PLAN.md — Correlation-id/MDC + audit requestId/outcome — PIPE-03
+- [ ] 03-03-PLAN.md — Legacy/unified pipeline parity + envelope-only error guard — PIPE-02
+- [ ] 03-04-PLAN.md — Streaming request-side mapping, raw chunk passthrough — PIPE-04
 
 ---
 
