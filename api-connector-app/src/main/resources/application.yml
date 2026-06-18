@@ -43,6 +43,8 @@ integration:
   invoke:
     platform-http-status: PLATFORM_OK
     audit-enabled: true
+    # D-22: global one-switch rollback. When false the whole invoke pipeline runs passthrough.
+    mapping-enabled: true
     rate-limit-per-code3rd-per-minute: 0
   legacy:
     enabled: true

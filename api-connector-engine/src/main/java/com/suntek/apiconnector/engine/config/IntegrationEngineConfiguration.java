@@ -35,6 +35,7 @@ import com.suntek.apiconnector.mapping.transform.Sm4DecryptTransformStep;
 import com.suntek.apiconnector.mapping.transform.Sm4EncryptTransformStep;
 import com.suntek.apiconnector.mapping.transform.StubTransformStep;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -113,9 +114,20 @@ public class IntegrationEngineConfiguration {
     public IntegrationOrchestrator integrationOrchestrator(
             ConnectorRegistry registry,
             AuthEngine authEngine,
-            HttpTransport httpTransport) {
+            HttpTransport httpTransport,
+            MappingEngine mappingEngine,
+            TransformPipeline transformPipeline,
+            ResolvedMappingCache resolvedMappingCache,
+            @Value("${integration.invoke.mapping-enabled:true}") boolean mappingEnabled) {
         return new DefaultIntegrationOrchestrator(
-                registry, authEngine, httpTransport, new ResponseEvaluator());
+                registry,
+                authEngine,
+                httpTransport,
+                new ResponseEvaluator(),
+                mappingEngine,
+                transformPipeline,
+                resolvedMappingCache,
+                mappingEnabled);
     }
 
     /**

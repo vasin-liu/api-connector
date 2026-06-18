@@ -458,7 +458,7 @@ class DefaultIntegrationOrchestratorTest {
 
         @Override
         public AuthOutcome apply(AuthContext context) {
-            signedBody = context.body();
+            signedBody = context.requestBody();
             return new AuthOutcome(Map.of(), Map.of(), null);
         }
     }
