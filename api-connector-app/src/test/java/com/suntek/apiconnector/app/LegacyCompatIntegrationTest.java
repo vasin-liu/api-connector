@@ -151,6 +151,58 @@ class LegacyCompatIntegrationTest {
     }
 
     /**
+     * PIPE-02 / T-03-06 (D-07/D-09): the legacy error response carries the {@code mapping.error}
+     * business shape exactly once. {@code mapping.error} owns the business-error JSON; the
+     * {@link com.suntek.apiconnector.api.legacy.LegacyCompatResponseFormatter} contributes only the
+     * transport envelope (HTTP status / Content-Type), never a second business-error transform.
+     *
+     * <p>The legacy {@code api/legacy/*} adapters ({@code ThirdpartLegacyDispatcher},
+     * {@code IdpsLegacySpecialHandler}/{@code LegacySpecialHandler}) were read and confirmed to run
+     * purely as pre/post adapters — they delegate to {@code IntegrationInvokeService.invoke(...)} and
+     * format the envelope only; no mapping/transform call lives under {@code api/legacy/*} (D-07,
+     * Pitfall 5). This test is the regression guard.
+     */
+    @Test
+    void legacyErrorMappedOnceEnvelopeOnly() throws Exception {
+        // Vendor returns a business error on HTTP 200 (no success:true -> successWhen fails),
+        // so the shared pipeline routes to mapping.error exactly once.
+        wireMock.stubFor(get(urlEqualTo("/vendor/err"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"errCode\":\"E42\",\"errMsg\":\"boom\"}")));
+        registerErrorMappedIdps(wireMock.getPort());
+
+        HttpResponse<String> legacy = httpClient.send(
+                HttpRequest.newBuilder()
+                        .uri(URI.create("http://localhost:" + port + "/idps/vendor/err"))
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        // Transport envelope only: platform_ok keeps HTTP 200; the business error lives in the body.
+        assertEquals(200, legacy.statusCode());
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode body = mapper.readTree(legacy.body());
+
+        // (1) Business error shape == mapping.error output, mapped exactly once.
+        assertEquals("E42", body.get("code").asText(), "mapped error code");
+        assertEquals("boom", body.get("message").asText(), "mapped error message");
+        assertFalse(body.get("success").asBoolean(), "mapping.error sets success=false");
+        // Pre-mapping vendor fields are gone -> not passthrough, and the rename ran once not twice.
+        assertFalse(body.has("errCode"), "raw vendor field must be consumed by mapping.error");
+        assertFalse(body.has("errMsg"), "raw vendor field must be consumed by mapping.error");
+
+        // (2) Formatter envelope-only (D-09): the legacy body is the mapping.error output verbatim,
+        // proving the formatter did NOT apply a second business-error transform (no double mapping,
+        // no extra wrapper fields around the already-mapped error).
+        JsonNode expectedMappedOnce = mapper.readTree("{\"code\":\"E42\",\"message\":\"boom\",\"success\":false}");
+        assertEquals(expectedMappedOnce, body,
+                "legacy error body must equal the mapping.error output exactly once (formatter envelope-only)");
+    }
+
+    /**
      * Rebinds IDPS to WireMock with a single {@code parity} endpoint carrying request mapping
      * ({@code a} -> {@code b}) and response mapping ({@code raw} -> {@code mapped}), so both the
      * unified API and the legacy {@code /idps/...} URL exercise mapping through the shared pipeline.
@@ -174,6 +226,36 @@ class LegacyCompatIntegrationTest {
                                 List.of(new MappingRule("rename", "$.raw", "$.mapped", null, null, null)),
                                 null),
                         null),
+                null);
+        registry.save(mapped, Map.of(), ConnectorSpecStatus.PUBLISHED);
+    }
+
+    /**
+     * Rebinds IDPS to WireMock with a single {@code errEp} endpoint whose {@code successWhen}
+     * fails for the vendor error body and whose {@code mapping.error} renames the vendor error
+     * fields into the legacy shape ({@code errCode} -> {@code code}, {@code errMsg} -> {@code message},
+     * {@code success} = false). Exercises the shared error-mapping route via the legacy URL.
+     */
+    private void registerErrorMappedIdps(int wireMockPort) {
+        ConnectorSpec idps = registry.require("IDPS");
+        ConnectorSpec mapped = new ConnectorSpec(
+                idps.code3rd(),
+                idps.version(),
+                "http://localhost:" + wireMockPort,
+                idps.protocol(),
+                Map.of("type", "none"),
+                List.of(new EndpointSpec("errEp", "GET", "/vendor/err", null, true)),
+                new ResponseSpec("$.success == true", "$", null, null),
+                idps.transport(),
+                new MappingSpec(
+                        null,
+                        null,
+                        new DirectionMappingSpec(
+                                List.of(
+                                        new MappingRule("rename", "$.errCode", "$.code", null, null, null),
+                                        new MappingRule("rename", "$.errMsg", "$.message", null, null, null),
+                                        new MappingRule("set", null, "$.success", null, false, null)),
+                                null)),
                 null);
         registry.save(mapped, Map.of(), ConnectorSpecStatus.PUBLISHED);
     }
