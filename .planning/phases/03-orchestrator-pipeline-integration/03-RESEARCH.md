@@ -489,7 +489,7 @@ public IntegrationOrchestrator integrationOrchestrator(
 
 **Note:** A1/A2 are the only genuinely-unverified items. Everything else is `[VERIFIED: codebase]` from direct source inspection.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **How does the engine-layer orchestrator read the `integration.invoke.mapping-enabled` flag without importing the api-layer `IntegrationInvokeProperties`?**
    - What we know: `IntegrationInvokeProperties` is in `api-connector-api`; orchestrator is in `api-connector-engine`; dependency direction is api→engine (engine must not depend on api).
