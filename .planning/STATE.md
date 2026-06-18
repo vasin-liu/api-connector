@@ -4,12 +4,12 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 03
 status: Executing Phase 03
-last_updated: "2026-06-18T05:29:58.644Z"
+last_updated: "2026-06-18T07:22:51.978Z"
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
   percent: 25
 ---
 
@@ -55,6 +55,8 @@ See: `.planning/PROJECT.md` (updated 2026-06-17)
 | 2026-06-18 | Orchestrator finalizes request body (mapRequest + transform.applyRequest) BEFORE authenticate | MAP-06/D-01 — HMAC must sign the body actually sent to the vendor |
 | 2026-06-18 | Null endpointSpec (legacy raw-path dispatch) is a mapping passthrough | D-04 — no resolvable mapping key; transforms still apply via spec.transform() |
 | 2026-06-18 | Correlation id (X-Request-Id→X-Trace-Id→UUID, sanitized) via MDC + passed explicitly into audit event on sync AND stream paths | D-10/D-11/D-13 — stream callback thread differs; MDC alone would attribute requestId=- |
+
+- [Phase ?]: 03-03 (PIPE-02): Option A - ThirdpartLegacyDispatcher.resolveEndpointId resolves a uniquely matching (method,path) endpointId before the shared invoke so matched legacy routes run mapping; ambiguous/absent matches stay null, preserving the engine D-04 passthrough invariant. Engine untouched (commit 0f1ad4a).
 
 ## Blockers
 
