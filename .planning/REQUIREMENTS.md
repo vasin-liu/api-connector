@@ -29,7 +29,7 @@
 - [x] **PIPE-01**: Unified invoke API orchestrates resolve → mapRequest → auth → HTTP → evaluate → mapResponse
 - [x] **PIPE-02**: Legacy URL paths route through the same orchestration pipeline as unified API
 - [x] **PIPE-03**: Invoke audit log records code3rd, endpointId, latency, outcome, and correlation id
-- [ ] **PIPE-04**: Streaming invoke path remains supported for endpoints that require it
+- [x] **PIPE-04**: Streaming invoke path remains supported for endpoints that require it
 
 ### Admin & Configuration (ADMIN)
 
@@ -124,7 +124,7 @@
 | PIPE-01 | Phase 3 | Complete |
 | PIPE-02 | Phase 3 | Complete |
 | PIPE-03 | Phase 3 | Complete |
-| PIPE-04 | Phase 3 | Pending |
+| PIPE-04 | Phase 3 | Complete |
 | ADMIN-01 | Phase 4 | Pending |
 | ADMIN-02 | Phase 4 | Pending |
 | ADMIN-03 | Phase 4 | Pending |
