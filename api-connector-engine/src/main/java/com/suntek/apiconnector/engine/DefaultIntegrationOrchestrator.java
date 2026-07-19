@@ -32,6 +32,8 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 默认编排器：Spec → Auth → HTTP → 响应映射。
@@ -52,6 +54,9 @@ public class DefaultIntegrationOrchestrator implements IntegrationOrchestrator {
     private final TransformPipeline transformPipeline;
     private final ResolvedMappingCache resolvedMappingCache;
     private final boolean mappingEnabled;
+    /** D-17: warn-once when a streamed endpoint has response mapping configured. */
+    private final ConcurrentHashMap<String, AtomicBoolean> streamResponseMappingWarned =
+            new ConcurrentHashMap<>();
 
     /**
      * 构造编排器（兼容旧签名，无映射/转换，整链直通）。
@@ -234,6 +239,48 @@ public class DefaultIntegrationOrchestrator implements IntegrationOrchestrator {
                 request.path());
         EndpointSpec endpointSpec = EndpointResolver.endpoint(spec, request.endpointId());
 
+        // D-22 / D-04: same request-side gate as invoke() — PIPE-04/MAP-06.
+        boolean pipelineActive = mappingEnabled
+                && mappingEngine != null
+                && transformPipeline != null
+                && resolvedMappingCache != null;
+        ResolvedMapping resolvedMapping = (pipelineActive && endpointSpec != null)
+                ? resolvedMappingCache.get(spec, endpointSpec)
+                : null;
+        boolean mappingActive = pipelineActive && MappingConfigResolver.hasAnyMapping(resolvedMapping);
+
+        // D-17: response mapping on a streamed endpoint is ignored (raw chunks); warn once.
+        if (mappingActive && resolvedMapping != null && resolvedMapping.hasResponse()) {
+            String warnKey = spec.code3rd() + ":"
+                    + (request.endpointId() != null ? request.endpointId() : resolved.path());
+            AtomicBoolean warned = streamResponseMappingWarned.computeIfAbsent(
+                    warnKey, k -> new AtomicBoolean(false));
+            if (warned.compareAndSet(false, true)) {
+                LOG.warn(
+                        "endpoint={} response mapping is ignored for streaming; chunks pass raw",
+                        request.endpointId() != null ? request.endpointId() : resolved.path());
+            }
+        }
+
+        // REQUEST SIDE (D-15 / MAP-06): mapRequest -> transform.applyRequest BEFORE authenticate.
+        String outboundBody = request.body();
+        if (mappingActive) {
+            long t = System.currentTimeMillis();
+            MappingContext reqCtx = new MappingContext(
+                    spec.code3rd(),
+                    MappingDirection.REQUEST,
+                    outboundBody,
+                    null,
+                    new EndpointMeta(request.endpointId(), resolved.method(), resolved.path()));
+            outboundBody = mappingEngine.mapRequest(reqCtx, resolvedMapping);
+            logStage("mapRequest", t);
+        }
+        if (pipelineActive) {
+            long t = System.currentTimeMillis();
+            outboundBody = transformPipeline.applyRequest(outboundBody, spec.transform(), credentials);
+            logStage("transformRequest", t);
+        }
+
         Map<String, String> headers = new HashMap<>();
         if (request.headers() != null) {
             headers.putAll(request.headers());
@@ -242,11 +289,14 @@ public class DefaultIntegrationOrchestrator implements IntegrationOrchestrator {
             headers.put("Accept", "text/event-stream");
         }
 
+        long authStart = System.currentTimeMillis();
         AuthenticatedInvocation auth = authenticate(
-                spec, resolved, endpointSpec, credentials, request.query(), request.body());
+                spec, resolved, endpointSpec, credentials, request.query(), outboundBody);
+        logStage("auth", authStart);
         headers.putAll(auth.headers());
 
         try {
+            // D-16: chunks pass RAW via onLine — no buffering, no mapResponse, no decrypt.
             httpTransport.exchangeStream(
                     new HttpTransportRequest(
                             spec.baseUrl(),
