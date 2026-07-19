@@ -1,8 +1,12 @@
 package com.suntek.apiconnector.app;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.suntek.apiconnector.engine.ConnectorRegistry;
 import com.suntek.apiconnector.engine.ConnectorSpecStatus;
+import com.suntek.apiconnector.engine.DefaultIntegrationOrchestrator;
 import com.suntek.apiconnector.scripting.ScriptCompileService;
 import com.suntek.apiconnector.spec.model.ConnectorSpec;
 import com.suntek.apiconnector.spec.model.DirectionMappingSpec;
@@ -13,6 +17,7 @@ import com.suntek.apiconnector.spec.model.ResponseSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -38,6 +43,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -357,6 +363,82 @@ class InvokeIntegrationTest {
         assertTrue(response.body().contains("\"success\":true"));
         assertTrue(response.body().contains("mapped"));
         assertTrue(response.body().contains("hello"));
+    }
+
+    /**
+     * PIPE-04 / D-15/D-16/D-17: streaming applies request-side mapping before HMAC sign,
+     * forwards vendor SSE chunks raw, and warn-onces when response mapping is configured.
+     */
+    @Test
+    void streamAppliesRequestSideChunksRawWarnOnce() throws Exception {
+        String sseBody = "data: {\"raw\":\"chunk1\"}\n\ndata: {\"raw\":\"chunk2\"}\n\n";
+        wireMock.stubFor(post(urlPathEqualTo("/sse"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "text/event-stream")
+                        .withBody(sseBody)));
+
+        ConnectorSpec streamAksk = new ConnectorSpec(
+                "STREAM_AKSK",
+                "1.0.0",
+                "http://localhost:" + wireMock.getPort(),
+                "HTTP",
+                Map.of("type", "aksk_hmac_sha256_v1"),
+                List.of(new EndpointSpec("ssePost", "POST", "/sse", null, true)),
+                new ResponseSpec(null, "$", null, null),
+                null,
+                new MappingSpec(
+                        new DirectionMappingSpec(
+                                List.of(new MappingRule("rename", "$.a", "$.b", null, null, null)),
+                                null),
+                        new DirectionMappingSpec(
+                                List.of(new MappingRule("rename", "$.raw", "$.mapped", null, null, null)),
+                                null),
+                        null),
+                null);
+        registry.save(
+                streamAksk,
+                Map.of("publicKey", "ak-test", "appSecret", "sk-test"),
+                ConnectorSpecStatus.PUBLISHED);
+
+        Logger orchLogger = (Logger) LoggerFactory.getLogger(DefaultIntegrationOrchestrator.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        orchLogger.addAppender(appender);
+        try {
+            HttpResponse<String> response = httpClient.send(
+                    HttpRequest.newBuilder()
+                            .uri(URI.create(baseUrl()
+                                    + "/api/v1/integrations/STREAM_AKSK/endpoints/ssePost/invoke/stream"))
+                            .header("Content-Type", "application/json")
+                            .header("Accept", "text/event-stream")
+                            .POST(HttpRequest.BodyPublishers.ofString("{\"body\":\"{\\\"a\\\":1}\"}"))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(200, response.statusCode());
+            // D-16: chunks pass RAW — response mapping (raw->mapped) must NOT rewrite streamed lines.
+            assertTrue(response.body().contains("\"raw\":\"chunk1\""));
+            assertTrue(response.body().contains("\"raw\":\"chunk2\""));
+            assertThat(response.body()).doesNotContain("\"mapped\"");
+
+            // D-15 / MAP-06: outbound body mapped (a->b) before HMAC signs it.
+            wireMock.verify(postRequestedFor(urlPathEqualTo("/sse"))
+                    .withRequestBody(matchingJsonPath("$.b"))
+                    .withHeader("X-Auth-Signature", matching("[0-9a-f]{64}")));
+
+            // D-17: response mapping configured for a streamed endpoint → single warn-once.
+            long warns = appender.list.stream()
+                    .filter(e -> e.getLevel().levelInt >= ch.qos.logback.classic.Level.WARN_INT)
+                    .filter(e -> e.getFormattedMessage() != null
+                            && e.getFormattedMessage().toLowerCase().contains("response mapping")
+                            && e.getFormattedMessage().contains("ssePost"))
+                    .count();
+            assertEquals(1, warns, "expected exactly one warn-once for streamed response mapping");
+        } finally {
+            orchLogger.detachAppender(appender);
+            appender.stop();
+        }
     }
 
     private static ConnectorSpec rebindBaseUrl(ConnectorSpec spec, int wireMockPort) {

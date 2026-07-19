@@ -8,6 +8,8 @@ import com.suntek.apiconnector.domain.model.AuthOutcome;
 import com.suntek.apiconnector.domain.model.ConnectorCode;
 import com.suntek.apiconnector.domain.model.InvocationRequest;
 import com.suntek.apiconnector.domain.model.MappingContext;
+import com.suntek.apiconnector.domain.spi.StreamingInvocationSink;
+import com.suntek.apiconnector.engine.transport.HttpStreamHandler;
 import com.suntek.apiconnector.engine.transport.HttpTransport;
 import com.suntek.apiconnector.engine.transport.HttpTransportRequest;
 import com.suntek.apiconnector.engine.transport.HttpTransportResponse;
@@ -15,6 +17,8 @@ import com.suntek.apiconnector.mapping.ErrorMappingTrigger;
 import com.suntek.apiconnector.mapping.ResolvedMapping;
 import com.suntek.apiconnector.mapping.TransformPipeline;
 import com.suntek.apiconnector.mapping.TransformStepRegistry;
+import com.suntek.apiconnector.mapping.exception.MappingErrorCode;
+import com.suntek.apiconnector.mapping.exception.MappingException;
 import com.suntek.apiconnector.mapping.spi.MappingEngine;
 import com.suntek.apiconnector.spec.model.ConnectorSpec;
 import com.suntek.apiconnector.spec.model.DirectionMappingSpec;
@@ -32,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultIntegrationOrchestratorTest {
@@ -400,6 +405,95 @@ class DefaultIntegrationOrchestratorTest {
         assertEquals(1, mappingEngine.mapErrorCalls.get());
         assertEquals(0, mappingEngine.mapResponseCalls.get());
         assertEquals("{\"err\":true}", result.rawBody());
+    }
+
+    /**
+     * PIPE-04 / D-18: a mapRequest failure before the stream opens must throw and write no chunk.
+     */
+    @Test
+    void preStreamMappingFailureThrowsNoChunk() {
+        ConnectorRegistry registry = new ConnectorRegistry();
+        MappingSpec mapping = new MappingSpec(
+                new DirectionMappingSpec(
+                        List.of(new MappingRule("rename", "$.a", "$.b", null, null, null)),
+                        null),
+                null,
+                null);
+        ConnectorSpec spec = new ConnectorSpec(
+                "STREAM_FAIL",
+                "1.0.0",
+                "https://vendor.example.com",
+                "HTTP",
+                Map.of("type", "none"),
+                List.of(new EndpointSpec("sse", "POST", "/sse", null, true)),
+                new ResponseSpec(null, null, null, null),
+                null,
+                mapping,
+                null);
+        registry.register(spec, Map.of());
+
+        AtomicInteger exchangeStreamCalls = new AtomicInteger();
+        AtomicInteger chunksWritten = new AtomicInteger();
+        MappingEngine throwingMapping = new MappingEngine() {
+            @Override
+            public String mapRequest(MappingContext ctx, ResolvedMapping config) {
+                throw new MappingException("pre-stream boom", MappingErrorCode.MAPPING_SCRIPT_RUNTIME_ERROR);
+            }
+
+            @Override
+            public String mapResponse(MappingContext ctx, ResolvedMapping config) {
+                return ctx.rawBody();
+            }
+
+            @Override
+            public String mapError(MappingContext ctx, ResolvedMapping config, ErrorMappingTrigger trigger) {
+                return ctx.rawBody();
+            }
+        };
+        HttpTransport transport = new HttpTransport() {
+            @Override
+            public HttpTransportResponse exchange(HttpTransportRequest request) {
+                throw new UnsupportedOperationException("sync not used");
+            }
+
+            @Override
+            public void exchangeStream(HttpTransportRequest request, HttpStreamHandler handler) {
+                exchangeStreamCalls.incrementAndGet();
+                handler.onLine(200, Map.of(), "data: should-not-arrive");
+                handler.onLine(200, Map.of(), null);
+            }
+        };
+        DefaultIntegrationOrchestrator orchestrator = new DefaultIntegrationOrchestrator(
+                registry,
+                new AuthEngine(List.of(new NoneAuthProvider())),
+                transport,
+                new ResponseEvaluator(),
+                throwingMapping,
+                new TransformPipeline(new TransformStepRegistry(List.of())),
+                new ResolvedMappingCache(),
+                true);
+
+        StreamingInvocationSink sink = new StreamingInvocationSink() {
+            @Override
+            public void writeLine(String line) {
+                chunksWritten.incrementAndGet();
+            }
+        };
+
+        assertThrows(MappingException.class, () -> orchestrator.invokeStream(
+                new InvocationRequest(
+                        new ConnectorCode("STREAM_FAIL"),
+                        "sse",
+                        InvocationRequest.HttpMethod.POST,
+                        "/sse",
+                        Map.of(),
+                        Map.of(),
+                        "{\"a\":1}",
+                        InvocationRequest.InvocationMode.SSE),
+                sink));
+
+        assertEquals(0, exchangeStreamCalls.get(), "exchangeStream must not open after pre-stream failure");
+        assertEquals(0, chunksWritten.get(), "no chunk may be written on pre-stream failure");
     }
 
     private static HttpTransport okTransport(String body) {
