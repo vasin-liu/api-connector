@@ -1,5 +1,7 @@
 # API Connector
 
+> **SUPERSEDED (pre-V2.7 hub).** This file describes the former `system-thirdpart` replacement (11-module Spring hub, Groovy, Vue/React console, drop-in URL compat). Current product is the V2.7 outbound Flow Runtime: `docs/design/api-connector-design-v2_7.md`, `openspec/specs/`. Do not treat Phase 4 Admin BFF as next work. `CLAUDE.md` is generated from this file — do not hand-edit `CLAUDE.md`.
+
 ## What This Is
 
 API Connector（`api-connector`）是 ITS 平台的第三方 API 集成中枢，用于替代旧模块 `system-thirdpart`。它通过声明式 connector 规格、可插拔认证、数据映射与可视化管理台，将 60+ 厂商/域的第三方 HTTP 接口统一接入并对外暴露。

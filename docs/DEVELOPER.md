@@ -1,5 +1,7 @@
 # 开发者指南
 
+> **历史文档（pre-V2.7 中枢）。** 下文的 `api-connector-app` Fat JAR、端口 `19090`、凭证环境变量属于**已删除**的 Spring 中枢。当前构建见仓库根 [README.md](../README.md)（四引擎模块 + `ApiClient`）。不要把本节当作现行工作。
+
 ## 环境要求
 
 - JDK **21+**（必须；`JAVA_HOME` 指向 JDK 21，本工程 `maven.compiler.release=21`）

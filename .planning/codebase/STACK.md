@@ -4,6 +4,8 @@ last_mapped_at: 2026-06-17
 ---
 # Technology Stack
 
+> **HISTORICAL (pre-V2.7 hub).** This map describes the deleted 11-module Spring hub (Vue console, Groovy, Fat JAR). Current stack is six Maven modules (`core` / `runtime` / `transport` / `config` + parent / dependencies), JDK 21, in-process `ApiClient`. See root `README.md` and `docs/design/api-connector-design-v2_7.md`.
+
 **Analysis Date:** 2026-06-17
 
 ## Languages

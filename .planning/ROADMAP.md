@@ -1,5 +1,7 @@
 # Roadmap: API Connector
 
+> **SUPERSEDED (pre-V2.7 hub).** Phases 4–8 (Admin BFF, React console, compat harness, vendor cutover) are **historical**, not the next backlog. Phase 0 Runtime is the current baseline (`openspec/specs/`, `docs/design/api-connector-design-v2_7.md`). Next product work after baseline closure is protocol validation (文心 OAuth + 高德交通 HMAC), not this table's Phase 4.
+
 **Project:** API Connector — system-thirdpart replacement
 **Phases:** 8 | **Requirements:** 44 v1 | **Coverage:** 100%
 **Structure:** Vertical MVP (end-to-end capability slices per phase)

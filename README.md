@@ -1,9 +1,13 @@
 # api-connector
 
-ITS 第三方 HTTP/多协议 **通用对接平台**（JDK 21）。
+ITS 出站 HTTP **Flow / Protocol Execution Engine**（JDK 21，V2.7 Phase 0）。
 
-- **代码根目录:** `D:\Work\99_Code\01_Java\api-connector`
-- **文档目录:** [docs/README.md](docs/README.md)
+产品是 in-process Runtime，不是 `system-thirdpart` 接入中枢。对外宿主 API 是 `com.suntek.apiconnector.core.api.ApiClient`（`execute` / `cancel`）。没有 Fat JAR 管理台、没有 `/integrations/{code3rd}` 代理 API。
+
+- Runtime 合同：[docs/design/api-connector-design-v2_7.md](docs/design/api-connector-design-v2_7.md)
+- 绿场规格包：[docs/design/v2.7-greenfield/](docs/design/v2.7-greenfield/README.md)
+- OpenSpec 基线：`openspec/specs/`
+- 平台笔记（JSONPath / GraalVM / CookieStore / planId）：[api-connector-config/README.md](api-connector-config/README.md)
 
 ## 模块
 
@@ -11,28 +15,30 @@ ITS 第三方 HTTP/多协议 **通用对接平台**（JDK 21）。
 |------|------|
 | `api-connector-dependencies` | BOM 版本管理 |
 | `api-connector-parent` | 编译与插件约定 |
-| `api-connector-domain` | 领域模型 |
-| `api-connector-spec` | Connector Spec 解析 + Catalog 扫描 |
-| `api-connector-connectors` | 内置厂家 Java Catalog |
-| `api-connector-auth` | 认证引擎 |
-| `api-connector-engine` | 编排与 HTTP 传输 |
-| `api-connector-api` | REST API（运行时 + Admin BFF） |
-| `api-connector-persistence` | JDBC 配置持久化 |
-| `api-connector-ui` | Vue 控制台静态资源 |
-| `api-connector-app` | 可运行应用 |
+| `api-connector-core` | 宿主类型（`ApiClient`、snapshot / result），无 Spring |
+| `api-connector-runtime` | Flow 编译与执行、Session、Pipeline、Script |
+| `api-connector-transport` | HTTP transport |
+| `api-connector-config` | Definition 装载与平台笔记 |
 
-## 构建（JDK 21+，推荐用项目自带 Wrapper）
+## 构建（JDK 21+）
+
+Windows（推荐项目 Wrapper）：
 
 ```powershell
-.\mvnw-jdk21.ps1 clean package -DskipTests
+.\mvnw-jdk21.ps1 -B -pl api-connector-core,api-connector-transport,api-connector-runtime,api-connector-config -am test
 ```
 
-`mvnw-jdk21.ps1` 会绑定本机 JDK 21 与 `.mvn/settings-jdk21.xml`（与 `http-ingestion-service` 相同约定）。
+`mvnw-jdk21.ps1` 会绑定本机 JDK 21。CI（`.github/workflows/v2-7-runtime.yml`）在 Temurin 21 上跑同一组模块，并设置 `MAVEN_OPTS=--enable-native-access=ALL-UNNAMED`。
 
-## 运行
+Unix：
 
 ```bash
-java -jar api-connector-app/target/api-connector-app-1.0.0-SNAPSHOT.jar
+./mvnw -B -pl api-connector-core,api-connector-transport,api-connector-runtime,api-connector-config -am test
 ```
 
-详见 [docs/DEVELOPER.md](docs/DEVELOPER.md)。
+## 历史文档
+
+下列入口描述 **pre-V2.7 中枢**（已删除的 11 模块 / Vue 控制台 / 代理 API），仅作考古，不是当前工作：
+
+- [docs/README.md](docs/README.md)
+- [docs/DEVELOPER.md](docs/DEVELOPER.md)

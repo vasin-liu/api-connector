@@ -4,6 +4,8 @@ last_mapped_at: 2026-06-17
 ---
 # Architecture
 
+> **HISTORICAL (pre-V2.7 hub).** This map describes the former hexagonal hub (`domain` → `spec` → `auth` → `engine` → `api` → `app`). Current architecture is `core` / `runtime` / `transport` / `config` executing compiled Flow plans. See `docs/design/api-connector-design-v2_7.md` and `openspec/specs/`.
+
 **Analysis Date:** 2026-06-17
 
 ## Pattern Overview
