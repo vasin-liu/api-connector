@@ -26,12 +26,13 @@
 | 5 | [05-condition-transition-tables.md](05-condition-transition-tables.md) | Condition / Transition 求值表 |
 | 6 | [06-attempt-sequences.md](06-attempt-sequences.md) | Mock B/C attempt 时序与 ID 约束 |
 | 7 | [07-plan-compiler.md](07-plan-compiler.md) | PlanCompiler 产物、Validate 拒绝表 |
+| 8 | [08-canonical-yaml-mock-d-i.md](08-canonical-yaml-mock-d-i.md) | Mock D/E/H/I YAML；F/G 复用说明 |
 
 规格栈对应关系：A1–A3 → 0a–0d → YAML/Java → 求值表/时序 → Compiler。
 
 ## 开工最小闭环（建议）
 
-1. 冻结 A1 schema 能表达 Mock A、B、C、F、I。  
+1. 冻结 A1 schema 能表达 Mock A–I（A–C 见 03，D/E/H/I 见 08，F/G 复用）。  
 2. 冻结 A2 `ApiClient` / `ExecutionResult` 与 A3 错误码。  
 3. JSONPath / GraalVM / Cookie 三个 spike，结论写回 A1。  
 4. 第一批测试：`TransitionEvaluator`（表 J2/J3）→ `DefinitionValidator`（表 U）→ `PlanCompiler(Mock A)` → 0a FakeTransport（A1/A2/A4）。

@@ -9,111 +9,43 @@
     <artifactId>api-connector-dependencies</artifactId>
     <version>${revision}</version>
     <name>${project.artifactId}</name>
-    <description>ITS Integration BOM — 版本与第三方依赖统一管理</description>
+    <description>V2.7 Runtime BOM</description>
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
         <java.version>21</java.version>
-
-        <!-- Spring platform (2026-06) -->
-        <spring-boot.version>4.0.6</spring-boot.version>
-        <spring-cloud.version>2025.1.0</spring-cloud.version>
-
-        <!-- Libraries -->
-        <lombok.version>1.18.44</lombok.version>
-        <bouncycastle.version>1.80</bouncycastle.version>
         <snakeyaml.version>2.4</snakeyaml.version>
-        <json-path.version>2.10.0</json-path.version>
-        <springdoc.version>3.0.3</springdoc.version>
-        <groovy.version>4.0.32</groovy.version>
-
-        <!-- Build plugins -->
+        <bouncycastle.version>1.80</bouncycastle.version>
+        <junit.version>5.12.2</junit.version>
+        <assertj.version>3.27.3</assertj.version>
+        <graalvm.polyglot.version>24.2.1</graalvm.polyglot.version>
         <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
         <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
         <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
-        <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
-        <node.version>v20.18.1</node.version>
-        <npm.version>10.8.2</npm.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring-boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework.cloud</groupId>
-                <artifactId>spring-cloud-dependencies</artifactId>
-                <version>${spring-cloud.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
                 <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-domain</artifactId>
+                <artifactId>api-connector-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-spec</artifactId>
+                <artifactId>api-connector-runtime</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-scripting</artifactId>
+                <artifactId>api-connector-transport</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-auth</artifactId>
+                <artifactId>api-connector-config</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-mapping</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-engine</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-connectors</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-api</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-ui</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.suntek.apiconnector</groupId>
-                <artifactId>api-connector-persistence</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.projectlombok</groupId>
-                <artifactId>lombok</artifactId>
-                <version>${lombok.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.bouncycastle</groupId>
-                <artifactId>bcprov-jdk18on</artifactId>
-                <version>${bouncycastle.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.yaml</groupId>
@@ -121,24 +53,30 @@
                 <version>${snakeyaml.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.jayway.jsonpath</groupId>
-                <artifactId>json-path</artifactId>
-                <version>${json-path.version}</version>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.springdoc</groupId>
-                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-                <version>${springdoc.version}</version>
+                <groupId>org.graalvm.polyglot</groupId>
+                <artifactId>polyglot</artifactId>
+                <version>${graalvm.polyglot.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.apache.groovy</groupId>
-                <artifactId>groovy</artifactId>
-                <version>${groovy.version}</version>
+                <groupId>org.graalvm.polyglot</groupId>
+                <artifactId>js</artifactId>
+                <version>${graalvm.polyglot.version}</version>
+                <type>pom</type>
             </dependency>
             <dependency>
-                <groupId>org.apache.groovy</groupId>
-                <artifactId>groovy-jsr223</artifactId>
-                <version>${groovy.version}</version>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${assertj.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

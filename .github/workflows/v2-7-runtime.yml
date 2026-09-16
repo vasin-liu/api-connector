@@ -1,0 +1,38 @@
+name: v2-7-runtime
+
+on:
+  push:
+    paths:
+      - "api-connector-core/**"
+      - "api-connector-runtime/**"
+      - "api-connector-transport/**"
+      - "api-connector-config/**"
+      - "api-connector-parent/**"
+      - "api-connector-dependencies/**"
+      - "pom.xml"
+      - ".github/workflows/v2-7-runtime.yml"
+  pull_request:
+    paths:
+      - "api-connector-core/**"
+      - "api-connector-runtime/**"
+      - "api-connector-transport/**"
+      - "api-connector-config/**"
+      - "api-connector-parent/**"
+      - "api-connector-dependencies/**"
+      - "pom.xml"
+      - ".github/workflows/v2-7-runtime.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Test greenfield modules only
+        run: ./mvnw -B -pl api-connector-core,api-connector-transport,api-connector-runtime,api-connector-config -am test
+        env:
+          MAVEN_OPTS: "--enable-native-access=ALL-UNNAMED"

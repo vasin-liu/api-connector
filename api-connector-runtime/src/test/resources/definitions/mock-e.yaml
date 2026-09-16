@@ -1,0 +1,105 @@
+schema:
+  version: 1
+
+definition:
+  id: mock-e
+  revision: 1
+  authProfile: cookie-token
+
+credentials:
+  account:
+    type: username-password
+    usernameRef: secret/mock-e/username
+    passwordRef: secret/mock-e/password
+    apiId: mock-e
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://mock-e.example"
+  token:
+    type: secret
+    scope: SESSION
+
+session:
+  ttl: 30m
+  failureCooldown: 5s
+  cookies: true
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+requests:
+  getData:
+    method: GET
+    url: "{global.baseUrl}/v1/data"
+    headers:
+      Authorization:
+        secretVar: session.token
+        prefix: "Bearer "
+        sink: Authorization
+    cookies: fromStore
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+  login:
+    method: POST
+    url: "{global.baseUrl}/v1/login"
+    cookies: acceptSetCookie
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+flows:
+  business:
+    steps:
+      - id: getData
+        request: getData
+        pipeline: identity
+        transitions:
+          - when:
+              status: 401
+            action: AUTHENTICATE
+            then: REPLAY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: login
+        request: login
+        pipeline: identity
+        transitions:
+          - when:
+              status: 200
+            action: CONTINUE
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED
+      - id: storeToken
+        extract:
+          from:
+            jsonpath: $.token
+            as: secret
+          to: session.token
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

@@ -1,0 +1,148 @@
+schema:
+  version: 1
+
+definition:
+  id: mock-d
+  revision: 1
+  authProfile: multi-hop-login
+
+credentials:
+  account:
+    type: username-password
+    usernameRef: secret/mock-d/username
+    passwordRef: secret/mock-d/password
+    apiId: mock-d
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://mock-d.example"
+  token:
+    type: secret
+    scope: SESSION
+  ticket:
+    type: string
+    scope: FLOW
+  code:
+    type: string
+    scope: FLOW
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 24
+  executionTimeout: 20s
+
+requests:
+  getData:
+    method: GET
+    url: "{global.baseUrl}/v1/data"
+    headers:
+      Authorization:
+        secretVar: session.token
+        prefix: "Bearer "
+        sink: Authorization
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+  hopA:
+    method: POST
+    url: "{global.baseUrl}/v1/auth/start"
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+  hopB:
+    method: POST
+    url: "{global.baseUrl}/v1/auth/challenge"
+    headers:
+      X-Ticket: "{flow.ticket}"
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+  hopC:
+    method: POST
+    url: "{global.baseUrl}/v1/auth/token"
+    headers:
+      X-Code: "{flow.code}"
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+flows:
+  business:
+    steps:
+      - id: getData
+        request: getData
+        pipeline: identity
+        transitions:
+          - when:
+              status: 401
+            action: AUTHENTICATE
+            then: REPLAY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: hopA
+        request: hopA
+        pipeline: identity
+        transitions:
+          - when:
+              status: 200
+            action: CONTINUE
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED
+      - id: takeTicket
+        extract:
+          from:
+            jsonpath: $.ticket
+          to: flow.ticket
+      - id: hopB
+        request: hopB
+        pipeline: identity
+        transitions:
+          - when:
+              status: 200
+            action: CONTINUE
+      - id: takeCode
+        extract:
+          from:
+            jsonpath: $.code
+          to: flow.code
+      - id: hopC
+        request: hopC
+        pipeline: identity
+        transitions:
+          - when:
+              status: 200
+            action: CONTINUE
+      - id: storeToken
+        extract:
+          from:
+            jsonpath: $.token
+            as: secret
+          to: session.token
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

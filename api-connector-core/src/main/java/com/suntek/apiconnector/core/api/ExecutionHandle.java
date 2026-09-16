@@ -1,0 +1,32 @@
+/*
+ * Copyright © 2021 - 2026 PCI Technology Group Co.,Ltd. All Rights Reserved.
+ * Site: https://www.pcitech.com/
+ * Address: PCI Intelligent Building, No.2 Xincen Fourth Road, Tianhe District, Guangzhou, China (Zip code: 510653)
+ */
+package com.suntek.apiconnector.core.api;
+
+import java.util.concurrent.CompletionStage;
+
+/**
+ * Handle for one execution.
+ *
+ * @author Gensokyo
+ * @since 2026-09-14
+ */
+public interface ExecutionHandle {
+
+    /**
+     * @return execution id
+     */
+    String executionId();
+
+    /**
+     * @return immutable snapshot
+     */
+    ExecutionSnapshot snapshot();
+
+    /**
+     * @return completion of the execution result
+     */
+    CompletionStage<ExecutionResult> result();
+}

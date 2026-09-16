@@ -1,0 +1,63 @@
+schema:
+  version: 1
+
+definition:
+  id: mock-i
+  revision: 1
+  authProfile: none
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://mock-i.example"
+  order:
+    type: object
+    scope: EXECUTION
+
+limits:
+  maxAuthAttempts: 0
+  maxAuthDepth: 0
+  transitionLimit: 8
+  executionTimeout: 10s
+
+policy:
+  onUnknownOutcome: FAIL
+
+requests:
+  createOrder:
+    method: POST
+    url: "{global.baseUrl}/orders"
+    headers:
+      Content-Type: "application/json"
+    body:
+      pipeline: jsonBody
+    replay:
+      replayability: UNKNOWN
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  jsonBody:
+    nodes:
+      - id: json
+        type: codec.json
+        ports:
+          in: { name: object, type: object, required: true }
+          out: { name: body, type: bytes }
+    edges: []
+
+flows:
+  business:
+    steps:
+      - id: create
+        request: createOrder
+        pipeline: jsonBody
+        input:
+          object: "{execution.order}"
+        transitions:
+          - when:
+              status: 201
+            action: SUCCESS
+  authentication:
+    steps: []
