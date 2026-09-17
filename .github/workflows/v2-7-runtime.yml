@@ -10,6 +10,7 @@ on:
       - "api-connector-parent/**"
       - "api-connector-dependencies/**"
       - "pom.xml"
+      - "mvnw"
       - ".github/workflows/v2-7-runtime.yml"
   pull_request:
     paths:
@@ -20,6 +21,7 @@ on:
       - "api-connector-parent/**"
       - "api-connector-dependencies/**"
       - "pom.xml"
+      - "mvnw"
       - ".github/workflows/v2-7-runtime.yml"
 
 jobs:
