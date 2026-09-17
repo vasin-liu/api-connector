@@ -9,21 +9,16 @@
     <version>${revision}</version>
     <packaging>pom</packaging>
     <name>api-connector</name>
-    <description>ITS 第三方 HTTP/多协议通用对接平台（JDK 21）</description>
+    <description>Outbound HTTP Flow and Protocol Execution Engine（JDK 21 / V2.7）</description>
     <url>https://pcitech.com/api-connector</url>
 
     <modules>
         <module>api-connector-dependencies</module>
         <module>api-connector-parent</module>
-        <module>api-connector-domain</module>
-        <module>api-connector-spec</module>
-        <module>api-connector-auth</module>
-        <module>api-connector-engine</module>
-        <module>api-connector-connectors</module>
-        <module>api-connector-api</module>
-        <module>api-connector-ui</module>
-        <module>api-connector-persistence</module>
-        <module>api-connector-app</module>
+        <module>api-connector-core</module>
+        <module>api-connector-runtime</module>
+        <module>api-connector-transport</module>
+        <module>api-connector-config</module>
     </modules>
 
     <properties>

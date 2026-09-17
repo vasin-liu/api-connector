@@ -1,5 +1,7 @@
 # ITS Integration Platform 文档
 
+> **历史文档（pre-V2.7 中枢）。** 本页模块树、Fat JAR、`/console/`、`POST /integrations/{code3rd}/...` 描述的是**已删除**的接入中枢。当前产品是 V2.7 Flow Runtime：根 [README.md](../README.md)、[design/api-connector-design-v2_7.md](./design/api-connector-design-v2_7.md)。不要按下面的「快速启动」去构建 `api-connector-app` 或 Vue 控制台。
+
 本目录包含 **api-connector**（ITS 第三方通用对接平台）的全部设计与开发文档。
 
 ## 文档索引

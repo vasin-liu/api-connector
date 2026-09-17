@@ -1,0 +1,130 @@
+schema:
+  version: 1
+
+definition:
+  id: mock-b
+  revision: 1
+  authProfile: password-login
+
+credentials:
+  account:
+    type: username-password
+    usernameRef: secret/mock-b/username
+    passwordRef: secret/mock-b/password
+    apiId: mock-b
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://mock-b.example"
+  token:
+    type: secret
+    scope: SESSION
+  loginBody:
+    type: json
+    scope: EXECUTION
+
+session:
+  ttl: 30m
+  failureCooldown: 5s
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+requests:
+  getData:
+    method: GET
+    url: "{global.baseUrl}/v1/data"
+    headers:
+      Authorization:
+        secretVar: session.token
+        prefix: "Bearer "
+        sink: Authorization
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+  login:
+    method: POST
+    url: "{global.baseUrl}/v1/login"
+    headers:
+      Content-Type: "application/json"
+    body:
+      pipeline: loginEncode
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  loginEncode:
+    nodes:
+      - id: json
+        type: codec.json
+        ports:
+          in: { name: object, type: object, required: true }
+          out: { name: body, type: bytes }
+    edges: []
+
+flows:
+  business:
+    steps:
+      - id: getData
+        request: getData
+        pipeline: identity
+        transitions:
+          - when:
+              all:
+                - status: 401
+                - jsonpath:
+                    path: $.error
+                    equals: UNAUTHORIZED
+            action: AUTHENTICATE
+            then: REPLAY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: buildLogin
+        assign:
+          execution.loginBody:
+            object:
+              username: { credential: account.username }
+              password: { credential: account.password }
+      - id: login
+        request: login
+        pipeline: loginEncode
+        input:
+          object: "{execution.loginBody}"
+        transitions:
+          - when:
+              status: 200
+            action: CONTINUE
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED
+      - id: storeToken
+        extract:
+          from:
+            jsonpath: $.token
+            as: secret
+          to: session.token
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

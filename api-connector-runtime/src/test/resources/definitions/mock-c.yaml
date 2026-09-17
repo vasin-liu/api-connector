@@ -1,0 +1,155 @@
+schema:
+  version: 1
+
+definition:
+  id: mock-c
+  revision: 1
+  authProfile: hmac-challenge
+
+credentials:
+  apiKey:
+    type: secret
+    valueRef: secret/mock-c/api-key
+    apiId: mock-c
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://mock-c.example"
+  nonce:
+    type: string
+    scope: FLOW
+  timestamp:
+    type: number
+    scope: EXECUTION
+  authSignature:
+    type: string
+    scope: FLOW
+  signed:
+    type: boolean
+    scope: FLOW
+    value: false
+
+limits:
+  maxAuthAttempts: 3
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+  onStaleFlowBinding: RETRY_FLOW
+
+requests:
+  getData:
+    method: POST
+    url: "{global.baseUrl}/api/data"
+    headers:
+      Content-Type: "application/json"
+      X-Timestamp: "{execution.timestamp}"
+      Authorization:
+        template: "HMAC-SHA256 {flow.authSignature}"
+        sink: Authorization
+        when: "{flow.signed}"
+    body:
+      pipeline: jsonBody
+    replay:
+      replayability: CONDITIONALLY_SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+      idempotencyKeyStrategy: none
+
+pipelines:
+  jsonBody:
+    nodes:
+      - id: json
+        type: codec.json
+        ports:
+          in: { name: object, type: object, required: true }
+          out: { name: body, type: bytes }
+    edges: []
+
+  challengeHmac:
+    nodes:
+      - id: canonical
+        type: canonicalizer.concat
+        config:
+          parts:
+            - { secretRef: apiKey }
+            - { var: flow.nonce }
+            - { var: execution.timestamp }
+          separator: ""
+        ports:
+          in_secret: { type: secret, required: true }
+          in_nonce: { type: string, required: true }
+          in_ts: { type: number, required: true }
+          out: { name: canonical, type: bytes }
+      - id: hmac
+        type: signer.hmac-sha256
+        ports:
+          in: { name: canonical, type: bytes, required: true }
+          key: { name: key, type: secret, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: canonical.out
+        to: hmac.in
+      - from:
+          secretRef: apiKey
+        to: hmac.key
+        sink: HMAC
+
+flows:
+  business:
+    steps:
+      - id: stamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: getData
+        request: getData
+        pipeline: jsonBody
+        transitions:
+          - when:
+              all:
+                - status: 403
+                - header:
+                    name: X-Challenge
+                    exists: true
+            action: AUTHENTICATE
+            then: REPLAY_REQUEST
+          - when:
+              all:
+                - status: 403
+                - jsonpath:
+                    path: $.error
+                    equals: PERMISSION_DENIED
+            action: FAIL
+            outcome: FAILURE
+          - when:
+              status: 200
+            action: SUCCESS
+          - when:
+              status: 503
+            action: RETRY_REQUEST
+
+  authentication:
+    steps:
+      - id: readNonce
+        extract:
+          from:
+            header: X-Challenge
+          to: flow.nonce
+        commitOn: CHALLENGE
+      - id: newTimestamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: sign
+        pipeline: challengeHmac
+        output:
+          flow.authSignature: hmac.hex
+      - id: markSigned
+        assign:
+          flow.signed: true
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

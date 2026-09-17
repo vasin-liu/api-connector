@@ -1,0 +1,68 @@
+schema:
+  version: 1
+
+definition:
+  id: mock-a
+  revision: 1
+  authProfile: api-key-query
+
+credentials:
+  apiKey:
+    type: secret
+    valueRef: secret/mock-a/api-key
+    apiId: mock-a
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://mock-a.example"
+
+limits:
+  maxAuthAttempts: 0
+  maxAuthDepth: 0
+  transitionLimit: 8
+  executionTimeout: 10s
+
+requests:
+  getStatus:
+    method: GET
+    url: "{global.baseUrl}/v1/status"
+    query:
+      key:
+        secretRef: apiKey
+        sink: Authorization
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: in
+        type: passthrough
+        ports:
+          in: { name: body, type: bytes, required: false }
+          out: { name: body, type: bytes }
+    edges: []
+
+flows:
+  business:
+    steps:
+      - id: call
+        request: getStatus
+        pipeline: identity
+        transitions:
+          - when:
+              status: 200
+            action: SUCCESS
+          - when:
+              status:
+                from: 500
+                to: 599
+            action: FAIL
+            outcome: RETRYABLE_FAILURE
+
+  authentication:
+    steps: []
