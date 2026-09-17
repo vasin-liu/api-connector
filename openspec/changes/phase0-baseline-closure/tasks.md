@@ -17,10 +17,10 @@
 
 ## 4. Merge to main
 
-- [ ] 4.1 Open one PR from `feat/v2.7-greenfield-runtime` (engine + this change’s doc commits) into `main` and verify GitHub shows the PR URL with workflow `v2-7-runtime` attached
+- [x] 4.1 Open one PR from `feat/v2.7-greenfield-runtime` (engine + this change’s doc commits) into `main` and verify GitHub shows the PR URL with workflow `v2-7-runtime` attached
 - [ ] 4.2 Merge the PR after review and `v2-7-runtime` green, and verify `main` tip contains the greenfield modules and updated root README
 - [ ] 4.3 If a later docs-only commit skips path filters, record the last green engine SHA from Actions (do not treat a skipped workflow as failure) and verify that SHA still points at the four engine modules
 
 ## 5. Handoff
 
-- [ ] 5.1 State in the PR body that the next OpenSpec change is `protocol-validation-wenxin-gaode` (文心 OAuth + 高德交通 HMAC) with no Host/admin in that follow-up, and verify the PR description contains that sentence
+- [x] 5.1 State in the PR body that the next OpenSpec change is `protocol-validation-wenxin-gaode` (文心 OAuth + 高德交通 HMAC) with no Host/admin in that follow-up, and verify the PR description contains that sentence
