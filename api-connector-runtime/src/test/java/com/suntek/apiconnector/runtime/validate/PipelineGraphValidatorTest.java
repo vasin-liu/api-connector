@@ -83,6 +83,12 @@ class PipelineGraphValidatorTest {
     }
 
     @Test
+    void unknownNodeTypeIsRejected() {
+        String yaml = mockC().replace("canonicalizer.concat", "canonicalizer.sorted-query-typo");
+        assertCode(yaml, ValidationCodes.VAL_PIPE_UNKNOWN_NODE);
+    }
+
+    @Test
     void p7_codecThenHmacWithoutEdgesFailsType() {
         String yaml = mockC().replace(
                 "          out: { name: body, type: bytes }\n    edges: []",

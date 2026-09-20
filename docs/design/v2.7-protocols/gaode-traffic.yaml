@@ -1,0 +1,151 @@
+# Protocol table: docs/design/v2.7-protocols/gaode-traffic.md
+# HMAC node: canonicalizer.sorted-query (not canonicalizer.concat). sig is excluded.
+schema:
+  version: 1
+
+definition:
+  id: gaode-traffic
+  revision: 1
+  authProfile: gaode-traffic-hmac-v1
+
+credentials:
+  appKey:
+    type: secret
+    valueRef: secret/gaode-traffic/app-key
+    apiId: gaode-traffic
+  appSecret:
+    type: secret
+    valueRef: secret/gaode-traffic/app-secret
+    apiId: gaode-traffic
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://et-api.amap.com"
+  city:
+    type: string
+    scope: GLOBAL
+    value: "110000"
+  timestamp:
+    type: number
+    scope: EXECUTION
+  appKey:
+    type: secret
+    scope: EXECUTION
+  sig:
+    type: string
+    scope: FLOW
+  signed:
+    type: boolean
+    scope: FLOW
+    value: false
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+  onStaleFlowBinding: RETRY_FLOW
+
+requests:
+  rectangleTraffic:
+    method: GET
+    url: "{global.baseUrl}/v3/traffic/status/rectangle"
+    query:
+      city: "{global.city}"
+      key: "{execution.appKey}"
+      timestamp: "{execution.timestamp}"
+      sig: "{flow.sig}"
+    replay:
+      replayability: CONDITIONALLY_SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  signQuery:
+    nodes:
+      - id: canonical
+        type: canonicalizer.sorted-query
+        config:
+          separator: "&"
+          exclude:
+            - sig
+          params:
+            city:
+              var: global.city
+            key:
+              secretRef: appKey
+            timestamp:
+              var: execution.timestamp
+        ports:
+          in: { name: query, type: object, required: true }
+          out: { name: canonical, type: bytes }
+      - id: hmac
+        type: signer.hmac-sha256
+        ports:
+          in: { name: canonical, type: bytes, required: true }
+          key: { name: key, type: secret, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: canonical.out
+        to: hmac.in
+      - from:
+          secretRef: appSecret
+        to: hmac.key
+        sink: HMAC
+
+flows:
+  business:
+    steps:
+      - id: stamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: bindKey
+        assign:
+          execution.appKey: { credential: appKey.value }
+      - id: sign
+        pipeline: signQuery
+        output:
+          flow.sig: hmac.hex
+      - id: markSigned
+        assign:
+          flow.signed: true
+      - id: rectangleTraffic
+        request: rectangleTraffic
+        pipeline: identity
+        transitions:
+          - when:
+              status: 503
+            action: RETRY_FLOW
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: newTimestamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: bindKey
+        assign:
+          execution.appKey: { credential: appKey.value }
+      - id: sign
+        pipeline: signQuery
+        output:
+          flow.sig: hmac.hex
+      - id: markSigned
+        assign:
+          flow.signed: true
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

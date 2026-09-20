@@ -1,0 +1,136 @@
+# Protocol table: docs/design/v2.7-protocols/wenxin.md
+schema:
+  version: 1
+
+definition:
+  id: baidu-wenxin
+  revision: 1
+  authProfile: oauth2-token-in-query
+
+credentials:
+  clientId:
+    type: secret
+    valueRef: secret/baidu-wenxin/client-id
+    apiId: baidu-wenxin
+  clientSecret:
+    type: secret
+    valueRef: secret/baidu-wenxin/client-secret
+    apiId: baidu-wenxin
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://aip.baidubce.com"
+  token:
+    type: secret
+    scope: SESSION
+  clientId:
+    type: secret
+    scope: FLOW
+  clientSecret:
+    type: secret
+    scope: FLOW
+
+session:
+  ttl: 30m
+  failureCooldown: 5s
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+requests:
+  chat:
+    method: POST
+    url: "{global.baseUrl}/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/eb-instant"
+    headers:
+      Content-Type: "application/json"
+    query:
+      access_token:
+        secretVar: session.token
+        sink: QUERY
+    body:
+      pipeline: jsonBody
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+  token:
+    method: GET
+    url: "{global.baseUrl}/oauth/2.0/token"
+    query:
+      grant_type: client_credentials
+      client_id: "{flow.clientId}"
+      client_secret: "{flow.clientSecret}"
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  jsonBody:
+    nodes:
+      - id: json
+        type: codec.json
+        ports:
+          in: { name: object, type: object, required: true }
+          out: { name: body, type: bytes }
+    edges: []
+
+flows:
+  business:
+    steps:
+      - id: chat
+        request: chat
+        pipeline: jsonBody
+        transitions:
+          - when:
+              all:
+                - status: 401
+                - jsonpath:
+                    path: $.error
+                    equals: UNAUTHORIZED
+            action: AUTHENTICATE
+            then: REPLAY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: bindClient
+        assign:
+          flow.clientId: { credential: clientId.value }
+          flow.clientSecret: { credential: clientSecret.value }
+      - id: token
+        request: token
+        pipeline: identity
+        transitions:
+          - when:
+              status: 200
+            action: CONTINUE
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED
+      - id: storeToken
+        extract:
+          from:
+            jsonpath: $.access_token
+            as: secret
+          to: session.token
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

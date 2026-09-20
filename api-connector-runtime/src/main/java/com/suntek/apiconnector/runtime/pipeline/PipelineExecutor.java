@@ -18,12 +18,14 @@ import com.suntek.apiconnector.runtime.state.VariableRuntime;
 import com.suntek.apiconnector.runtime.yaml.YamlMaps;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * Executes a compiled pipeline graph (passthrough, codec.json, concat, hmac-sha256).
+ * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, hmac-sha256).
  *
  * @author Gensokyo
  * @since 2026-09-15
@@ -70,9 +72,14 @@ public final class PipelineExecutor {
                     ports.put(id + ".out", new DataValue.BytesValue(canonical));
                     ports.put(id + ".canonical", ports.get(id + ".out"));
                 }
+                case "canonicalizer.sorted-query" -> {
+                    byte[] canonical = sortedQuery(YamlMaps.map(rawNode.get("config")), plan, variables, secrets, sinks);
+                    ports.put(id + ".out", new DataValue.BytesValue(canonical));
+                    ports.put(id + ".canonical", ports.get(id + ".out"));
+                }
                 case "signer.hmac-sha256" -> {
                     byte[] data = findBytes(ports, "canonicalizer.concat", pipeline);
-                    SecretValue keySecret = secrets.requireCredential(plan, "apiKey", "value");
+                    SecretValue keySecret = null;
                     for (Object edgeRaw : pipeline.edges()) {
                         Map<String, Object> edge = YamlMaps.map(edgeRaw);
                         String to = YamlMaps.stringOrNull(edge.get("to"));
@@ -88,6 +95,9 @@ public final class PipelineExecutor {
                                 keySecret = secrets.requireCredential(plan, secretRef, "value");
                             }
                         }
+                    }
+                    if (keySecret == null) {
+                        keySecret = secrets.requireCredential(plan, "apiKey", "value");
                     }
                     sinks.check(keySecret, SecretSink.HMAC, new SinkDestination(plan.definitionId()));
                     byte[][] keyHolder = new byte[1][];
@@ -156,6 +166,51 @@ public final class PipelineExecutor {
             }
         }
         return out.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static byte[] sortedQuery(
+            Map<String, Object> config,
+            ExecutionPlan plan,
+            VariableRuntime variables,
+            CredentialResolver secrets,
+            SecretSinkPolicy sinks
+    ) {
+        Map<String, String> params = new LinkedHashMap<>();
+        YamlMaps.map(config.get("params")).forEach((name, raw) ->
+                params.put(name, resolvePart(raw, plan, variables, secrets, sinks)));
+        List<String> exclude = new ArrayList<>();
+        for (Object item : YamlMaps.list(config.get("exclude"))) {
+            if (item != null) {
+                exclude.add(String.valueOf(item));
+            }
+        }
+        String separator = config.get("separator") == null ? "&" : String.valueOf(config.get("separator"));
+        String canonical = SortedQueryCanonicalizer.canonicalize(params, exclude, separator);
+        return canonical.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String resolvePart(
+            Object raw,
+            ExecutionPlan plan,
+            VariableRuntime variables,
+            CredentialResolver secrets,
+            SecretSinkPolicy sinks
+    ) {
+        Map<String, Object> part = raw instanceof Map<?, ?> ? YamlMaps.map(raw) : Map.of("value", raw);
+        if (part.containsKey("secretRef")) {
+            SecretValue secret = secrets.requireCredential(plan, String.valueOf(part.get("secretRef")), "value");
+            sinks.check(secret, SecretSink.HMAC, new SinkDestination(plan.definitionId()));
+            String[] holder = new String[1];
+            secret.use(bytes -> holder[0] = new String(bytes, StandardCharsets.UTF_8));
+            return holder[0] == null ? "" : holder[0];
+        }
+        if (part.containsKey("var")) {
+            return readVar(String.valueOf(part.get("var")), variables);
+        }
+        if (part.containsKey("value")) {
+            return String.valueOf(part.get("value"));
+        }
+        return raw == null ? "" : String.valueOf(raw);
     }
 
     private static String readVar(String path, VariableRuntime variables) {

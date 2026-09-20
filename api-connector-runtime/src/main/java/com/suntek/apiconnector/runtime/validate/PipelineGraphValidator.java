@@ -30,6 +30,7 @@ public final class PipelineGraphValidator {
             "passthrough",
             "codec.json",
             "canonicalizer.concat",
+            "canonicalizer.sorted-query",
             "signer.hmac-sha256"
     );
 
@@ -117,6 +118,10 @@ public final class PipelineGraphValidator {
                 ports.put("in_ts", new Port("in_ts", "in_ts", "number", true));
                 ports.put("out", new Port("out", "out", "bytes", false));
             }
+            case "canonicalizer.sorted-query" -> {
+                ports.put("in", new Port("in", "query", "object", true));
+                ports.put("out", new Port("out", "canonical", "bytes", false));
+            }
             default -> {
             }
         }
@@ -184,6 +189,15 @@ public final class PipelineGraphValidator {
                 if (in != null) {
                     in.connected = true;
                 }
+            }
+            if ("canonicalizer.sorted-query".equals(node.type)) {
+                if (!YamlMaps.map(node.config.get("params")).isEmpty()) {
+                    Port in = node.port("in");
+                    if (in != null) {
+                        in.connected = true;
+                    }
+                }
+                continue;
             }
             if (!"canonicalizer.concat".equals(node.type)) {
                 continue;
