@@ -80,6 +80,21 @@ class DefinitionValidatorTest {
     }
 
     @Test
+    void unknownNowForm() {
+        assertCode(definition("""
+                - id: stamp
+                  assign:
+                    execution.ts: { now: epochSeconds }
+                - id: call
+                  request: ping
+                  transitions:
+                    - when: { status: 200 }
+                      action: SUCCESS
+                """, emptyAuth(), 0),
+                ValidationCodes.VAL_ASSIGN_FORM);
+    }
+
+    @Test
     void emptyAll() {
         assertCode(definition("""
                 - id: call

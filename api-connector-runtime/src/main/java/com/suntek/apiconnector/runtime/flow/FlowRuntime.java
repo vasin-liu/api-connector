@@ -41,6 +41,7 @@ import com.suntek.apiconnector.runtime.session.CookieStore;
 import com.suntek.apiconnector.runtime.session.SessionCoordinator;
 import com.suntek.apiconnector.runtime.state.DefaultVariableRuntime;
 import com.suntek.apiconnector.runtime.state.VariableRuntime;
+import com.suntek.apiconnector.runtime.time.NonceSource;
 import com.suntek.apiconnector.runtime.value.ByteSecret;
 import com.suntek.apiconnector.runtime.yaml.YamlMaps;
 import com.suntek.apiconnector.transport.HttpTransport;
@@ -51,6 +52,8 @@ import com.suntek.apiconnector.transport.TransportContext;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,6 +68,8 @@ import java.util.concurrent.TimeUnit;
  * @since 2026-09-15
  */
 public final class FlowRuntime {
+
+    private static final DateTimeFormatter ISO_OFFSET = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
 
     private FlowRuntime() {
     }
@@ -112,7 +117,8 @@ public final class FlowRuntime {
                 sessions,
                 clock,
                 CredentialResolver.phase0(new MapSecretProvider()),
-                java.util.UUID.randomUUID().toString()
+                java.util.UUID.randomUUID().toString(),
+                NonceSource.uuid()
         );
     }
 
@@ -137,6 +143,32 @@ public final class FlowRuntime {
             CredentialResolver secrets,
             String executionId
     ) {
+        return execute(plan, transport, input, cancellation, sessions, clock, secrets, executionId, NonceSource.uuid());
+    }
+
+    /**
+     * @param plan         compiled plan
+     * @param transport    outbound HTTP
+     * @param input        EXECUTION input
+     * @param cancellation cancel flag
+     * @param sessions     session coordinator
+     * @param clock        injectable clock
+     * @param secrets      credential resolver
+     * @param executionId  host execution id
+     * @param nonce        injectable nonce source for {@code generate: nonce}
+     * @return terminal result
+     */
+    public static ExecutionResult execute(
+            ExecutionPlan plan,
+            HttpTransport transport,
+            Map<String, DataValue> input,
+            ExecutionCancellation cancellation,
+            SessionCoordinator sessions,
+            Clock clock,
+            CredentialResolver secrets,
+            String executionId,
+            NonceSource nonce
+    ) {
         DefaultVariableRuntime variables = new DefaultVariableRuntime(plan.variables());
         seedExecutionInput(variables, input);
         SessionKey requested = plan.sessionKey();
@@ -152,7 +184,8 @@ public final class FlowRuntime {
                 new boolean[] {false},
                 secrets == null ? CredentialResolver.phase0(new MapSecretProvider()) : secrets,
                 new SecretSinkPolicy(),
-                new TraceBuilder(executionId)
+                new TraceBuilder(executionId),
+                nonce == null ? NonceSource.uuid() : nonce
         );
         ExecutionResult result = runFlow(frame, plan.business(), 0, 0, null);
         Optional<SessionSnapshot> snapshot = sessions.snapshot(requested.lookupKey());
@@ -690,8 +723,22 @@ public final class FlowRuntime {
             if (map.containsKey("credential")) {
                 return resolveCredential(String.valueOf(map.get("credential")), frame);
             }
-            if ("epochMillis".equals(String.valueOf(map.get("now")))) {
-                return new DataValue.NumberValue(frame.clock.millis());
+            if (map.containsKey("now")) {
+                String now = String.valueOf(map.get("now"));
+                if ("epochMillis".equals(now)) {
+                    return new DataValue.NumberValue(frame.clock.millis());
+                }
+                if ("isoOffset".equals(now)) {
+                    return new DataValue.StringValue(
+                            ZonedDateTime.ofInstant(frame.clock.instant(), frame.clock.getZone()).format(ISO_OFFSET));
+                }
+                throw new IllegalArgumentException("now must be epochMillis or isoOffset");
+            }
+            if (map.containsKey("generate")) {
+                if (!"nonce".equals(String.valueOf(map.get("generate")))) {
+                    throw new IllegalArgumentException("generate must be nonce");
+                }
+                return new DataValue.StringValue(frame.nonce.next());
             }
         }
         if (raw instanceof Boolean b) {
@@ -776,7 +823,8 @@ public final class FlowRuntime {
             boolean[] nonceConsumed,
             CredentialResolver secrets,
             SecretSinkPolicy sinks,
-            TraceBuilder trace
+            TraceBuilder trace,
+            NonceSource nonce
     ) {
     }
 

@@ -10,6 +10,7 @@ import com.suntek.apiconnector.core.value.DataValue;
 import com.suntek.apiconnector.runtime.plan.ExecutionPlan;
 import com.suntek.apiconnector.runtime.secret.CredentialResolver;
 import com.suntek.apiconnector.runtime.session.SessionCoordinator;
+import com.suntek.apiconnector.runtime.time.NonceSource;
 import com.suntek.apiconnector.transport.HttpTransport;
 
 import java.time.Clock;
@@ -111,5 +112,31 @@ public final class LinearFlowExecutor {
             String executionId
     ) {
         return FlowRuntime.execute(plan, transport, input, cancellation, sessions, clock, secrets, executionId);
+    }
+
+    /**
+     * @param plan         compiled plan
+     * @param transport    outbound HTTP
+     * @param input        EXECUTION-scoped host input
+     * @param cancellation cancel flag
+     * @param sessions     shared session coordinator
+     * @param clock        injectable clock
+     * @param secrets      credential resolver
+     * @param executionId  host execution id
+     * @param nonce        injectable nonce source
+     * @return terminal result
+     */
+    public static ExecutionResult execute(
+            ExecutionPlan plan,
+            HttpTransport transport,
+            Map<String, DataValue> input,
+            ExecutionCancellation cancellation,
+            SessionCoordinator sessions,
+            Clock clock,
+            CredentialResolver secrets,
+            String executionId,
+            NonceSource nonce
+    ) {
+        return FlowRuntime.execute(plan, transport, input, cancellation, sessions, clock, secrets, executionId, nonce);
     }
 }

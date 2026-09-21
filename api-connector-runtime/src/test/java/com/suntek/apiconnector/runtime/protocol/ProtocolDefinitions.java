@@ -23,6 +23,10 @@ final class ProtocolDefinitions {
         return read("gaode-traffic.yaml");
     }
 
+    static String idpsAksk() {
+        return read("idps-aksk.yaml");
+    }
+
     private static String read(String name) {
         Path[] candidates = {
                 Path.of("..", "docs", "design", "v2.7-protocols", name),

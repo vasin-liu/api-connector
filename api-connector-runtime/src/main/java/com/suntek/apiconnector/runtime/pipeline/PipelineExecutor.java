@@ -185,7 +185,9 @@ public final class PipelineExecutor {
             }
         }
         String separator = config.get("separator") == null ? "&" : String.valueOf(config.get("separator"));
-        String canonical = SortedQueryCanonicalizer.canonicalize(params, exclude, separator);
+        String encodingRaw = config.get("encoding") == null ? null : String.valueOf(config.get("encoding"));
+        String canonical = SortedQueryCanonicalizer.canonicalize(
+                params, exclude, separator, SortedQueryCanonicalizer.parseEncoding(encodingRaw));
         return canonical.getBytes(StandardCharsets.UTF_8);
     }
 
@@ -227,6 +229,7 @@ public final class PipelineExecutor {
             case DataValue.StringValue(String v) -> v;
             case DataValue.NumberValue(Number n) -> String.valueOf(n);
             case DataValue.BooleanValue(boolean b) -> String.valueOf(b);
+            case DataValue.BytesValue(byte[] bytes) -> new String(bytes, StandardCharsets.UTF_8);
             case SecretValue secret -> {
                 String[] holder = new String[1];
                 secret.use(bytes -> holder[0] = new String(bytes, StandardCharsets.UTF_8));

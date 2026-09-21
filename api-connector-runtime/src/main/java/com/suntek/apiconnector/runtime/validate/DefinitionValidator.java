@@ -88,13 +88,38 @@ public final class DefinitionValidator {
         if (!(assign instanceof Map<?, ?>)) {
             return;
         }
-        for (String target : YamlMaps.map(assign).keySet()) {
+        Map<String, Object> assigns = YamlMaps.map(assign);
+        for (String target : assigns.keySet()) {
             if (isGlobalTarget(target)) {
                 violations.add(new Violation(
                         ValidationCodes.VAL_GLOBAL_WRITE,
                         stepPath + "/assign/" + target,
                         "GLOBAL is read-only at runtime"
                 ));
+            }
+            Object raw = assigns.get(target);
+            if (raw instanceof Map<?, ?>) {
+                Map<String, Object> expr = YamlMaps.map(raw);
+                if (expr.containsKey("now")) {
+                    String now = String.valueOf(expr.get("now"));
+                    if (!"epochMillis".equals(now) && !"isoOffset".equals(now)) {
+                        violations.add(new Violation(
+                                ValidationCodes.VAL_ASSIGN_FORM,
+                                stepPath + "/assign/" + target + "/now",
+                                "now must be epochMillis or isoOffset"
+                        ));
+                    }
+                }
+                if (expr.containsKey("generate")) {
+                    String generate = String.valueOf(expr.get("generate"));
+                    if (!"nonce".equals(generate)) {
+                        violations.add(new Violation(
+                                ValidationCodes.VAL_ASSIGN_FORM,
+                                stepPath + "/assign/" + target + "/generate",
+                                "generate must be nonce"
+                        ));
+                    }
+                }
             }
         }
     }

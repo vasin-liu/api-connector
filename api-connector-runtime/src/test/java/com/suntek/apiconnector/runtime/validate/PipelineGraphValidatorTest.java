@@ -89,6 +89,62 @@ class PipelineGraphValidatorTest {
     }
 
     @Test
+    void unknownSortedQueryEncodingIsRejected() {
+        String yaml = """
+                schema:
+                  version: 1
+                definition:
+                  id: encoding-reject
+                  revision: 1
+                  authProfile: none
+                credentials:
+                  apiKey:
+                    type: secret
+                    valueRef: secret/encoding-reject/api-key
+                    apiId: encoding-reject
+                variables:
+                  baseUrl:
+                    type: string
+                    scope: GLOBAL
+                    value: "https://encoding.example"
+                limits:
+                  maxAuthAttempts: 1
+                  maxAuthDepth: 1
+                  transitionLimit: 8
+                  executionTimeout: 10s
+                requests:
+                  ping:
+                    method: GET
+                    url: "{global.baseUrl}/ping"
+                pipelines:
+                  signQuery:
+                    nodes:
+                      - id: canonical
+                        type: canonicalizer.sorted-query
+                        config:
+                          encoding: mystery
+                          separator: "&"
+                          params:
+                            city:
+                              value: "110000"
+                        ports:
+                          in: { name: query, type: object, required: true }
+                          out: { name: canonical, type: bytes }
+                    edges: []
+                flows:
+                  business:
+                    steps:
+                      - id: ping
+                        request: ping
+                        transitions:
+                          - when:
+                              status: 200
+                            action: SUCCESS
+                """;
+        assertCode(yaml, ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
     void p7_codecThenHmacWithoutEdgesFailsType() {
         String yaml = mockC().replace(
                 "          out: { name: body, type: bytes }\n    edges: []",

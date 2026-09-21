@@ -43,4 +43,43 @@ class SortedQueryCanonicalizerTest {
         assertThat(HmacSha256.hexUtf8(KEY, SortedQueryCanonicalizer.canonicalize(shuffled, List.of("sig"), "&")))
                 .isEqualTo(VECTOR);
     }
+
+    @Test
+    void omittedEncodingMatchesNonePlaintextVector() {
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("timestamp", "1000");
+        params.put("key", "test-ak");
+        params.put("city", "110000");
+        assertThat(SortedQueryCanonicalizer.canonicalize(params, List.of(), "&"))
+                .isEqualTo(CANONICAL);
+        assertThat(SortedQueryCanonicalizer.canonicalize(
+                params, List.of(), "&", SortedQueryCanonicalizer.Encoding.NONE))
+                .isEqualTo(CANONICAL);
+    }
+
+    @Test
+    void rfc3986EncodesThenSortsSpaceStarAndTilde() {
+        Map<String, String> shuffled = new LinkedHashMap<>();
+        shuffled.put("q", "a b");
+        shuffled.put("note", "~ok");
+        shuffled.put("city", "110000");
+        shuffled.put("star", "a*b");
+        String canonical = SortedQueryCanonicalizer.canonicalize(
+                shuffled, List.of(), "&", SortedQueryCanonicalizer.Encoding.RFC3986);
+        assertThat(canonical).isEqualTo("city=110000&note=~ok&q=a%20b&star=a%2Ab");
+        assertThat(canonical).contains("%20");
+        assertThat(canonical).contains("%2A");
+        assertThat(canonical).contains("~ok");
+        assertThat("q=a%20b&star=a%2Ab&note=~ok&city=110000").isNotEqualTo(canonical);
+    }
+
+    @Test
+    void rfc3986IdpsQueryLineMatchesPublishedVector() {
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("q", "a*b");
+        params.put("city", "110000");
+        assertThat(SortedQueryCanonicalizer.canonicalize(
+                params, List.of(), "&", SortedQueryCanonicalizer.Encoding.RFC3986))
+                .isEqualTo("city=110000&q=a%2Ab");
+    }
 }

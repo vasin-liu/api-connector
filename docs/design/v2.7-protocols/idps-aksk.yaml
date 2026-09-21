@@ -1,0 +1,206 @@
+# Protocol table: docs/design/v2.7-protocols/idps-aksk.md
+# Two pipelines: RFC3986 sorted-query then concat LF + HMAC. No canonicalizer.aksk-*.
+schema:
+  version: 1
+
+definition:
+  id: idps-aksk
+  revision: 1
+  authProfile: idps-aksk-hmac-v1
+
+credentials:
+  accessKey:
+    type: secret
+    valueRef: secret/idps-aksk/access-key
+    apiId: idps-aksk
+  secretKey:
+    type: secret
+    valueRef: secret/idps-aksk/secret-key
+    apiId: idps-aksk
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://idps.example"
+  algorithm:
+    type: string
+    scope: GLOBAL
+    value: "aksk_hmac_sha256"
+  httpMethod:
+    type: string
+    scope: GLOBAL
+    value: "GET"
+  uriPath:
+    type: string
+    scope: GLOBAL
+    value: "/api/v2/demo"
+  city:
+    type: string
+    scope: GLOBAL
+    value: "110000"
+  q:
+    type: string
+    scope: GLOBAL
+    value: "a*b"
+  timestamp:
+    type: string
+    scope: EXECUTION
+  snowflake:
+    type: string
+    scope: EXECUTION
+  canonicalQuery:
+    type: string
+    scope: EXECUTION
+  accessKey:
+    type: secret
+    scope: EXECUTION
+  signature:
+    type: string
+    scope: FLOW
+  signed:
+    type: boolean
+    scope: FLOW
+    value: false
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+  onStaleFlowBinding: RETRY_FLOW
+
+requests:
+  demoGet:
+    method: GET
+    url: "{global.baseUrl}{global.uriPath}"
+    headers:
+      X-Auth-Key: "{execution.accessKey}"
+      X-Auth-Algorithm: "{global.algorithm}"
+      X-Auth-Signature: "{flow.signature}"
+      X-Auth-Timestamp: "{execution.timestamp}"
+      X-Auth-SnowflakeID: "{execution.snowflake}"
+    query:
+      city: "{global.city}"
+      q: "{global.q}"
+    replay:
+      replayability: CONDITIONALLY_SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  rfc3986Query:
+    nodes:
+      - id: canonical
+        type: canonicalizer.sorted-query
+        config:
+          separator: "&"
+          encoding: rfc3986
+          params:
+            city:
+              var: global.city
+            q:
+              var: global.q
+        ports:
+          in: { name: query, type: object, required: true }
+          out: { name: canonical, type: bytes }
+    edges: []
+
+  envelopeHmac:
+    nodes:
+      - id: envelope
+        type: canonicalizer.concat
+        config:
+          separator: "\n"
+          parts:
+            - { var: global.algorithm }
+            - { secretRef: accessKey }
+            - { var: execution.timestamp }
+            - { var: global.httpMethod }
+            - { var: global.uriPath }
+            - { var: execution.canonicalQuery }
+            - { var: execution.snowflake }
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: hmac
+        type: signer.hmac-sha256
+        ports:
+          in: { name: canonical, type: bytes, required: true }
+          key: { name: key, type: secret, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: envelope.out
+        to: hmac.in
+      - from:
+          secretRef: secretKey
+        to: hmac.key
+        sink: HMAC
+
+flows:
+  business:
+    steps:
+      - id: stamp
+        assign:
+          execution.timestamp: { now: isoOffset }
+      - id: nonce
+        assign:
+          execution.snowflake: { generate: nonce }
+      - id: bindKey
+        assign:
+          execution.accessKey: { credential: accessKey.value }
+      - id: canonicalizeQuery
+        pipeline: rfc3986Query
+        output:
+          execution.canonicalQuery: canonical.out
+      - id: sign
+        pipeline: envelopeHmac
+        output:
+          flow.signature: hmac.hex
+      - id: markSigned
+        assign:
+          flow.signed: true
+      - id: demoGet
+        request: demoGet
+        pipeline: identity
+        transitions:
+          - when:
+              status: 503
+            action: RETRY_FLOW
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: newTimestamp
+        assign:
+          execution.timestamp: { now: isoOffset }
+      - id: newNonce
+        assign:
+          execution.snowflake: { generate: nonce }
+      - id: bindKey
+        assign:
+          execution.accessKey: { credential: accessKey.value }
+      - id: canonicalizeQuery
+        pipeline: rfc3986Query
+        output:
+          execution.canonicalQuery: canonical.out
+      - id: sign
+        pipeline: envelopeHmac
+        output:
+          flow.signature: hmac.hex
+      - id: markSigned
+        assign:
+          flow.signed: true
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

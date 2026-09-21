@@ -21,6 +21,7 @@ import com.suntek.apiconnector.runtime.registry.InMemoryDefinitionRegistry;
 import com.suntek.apiconnector.runtime.secret.CredentialResolver;
 import com.suntek.apiconnector.runtime.secret.MapSecretProvider;
 import com.suntek.apiconnector.runtime.session.SessionCoordinator;
+import com.suntek.apiconnector.runtime.time.NonceSource;
 import com.suntek.apiconnector.transport.HttpTransport;
 
 import java.time.Clock;
@@ -55,6 +56,7 @@ public final class Phase0ApiClient implements ApiClient {
     private final HttpTransport transport;
     private final SessionCoordinator sessions;
     private final Clock clock;
+    private final NonceSource nonce;
     private final MapSecretProvider memorySecrets;
     private final CredentialResolver secrets;
     private final ConcurrentHashMap<String, ExecutionCancellation> inflight = new ConcurrentHashMap<>();
@@ -82,10 +84,19 @@ public final class Phase0ApiClient implements ApiClient {
 
     /**
      * @param transport outbound HTTP
-     * @param clock     injectable clock for {@code now: epochMillis}
+     * @param clock     injectable clock for {@code now: epochMillis} / {@code now: isoOffset}
      */
     public Phase0ApiClient(HttpTransport transport, Clock clock) {
         this(new InMemoryDefinitionRegistry(), transport, new SessionCoordinator(), clock);
+    }
+
+    /**
+     * @param transport outbound HTTP
+     * @param clock     injectable clock
+     * @param nonce     injectable nonce source for {@code generate: nonce}
+     */
+    public Phase0ApiClient(HttpTransport transport, Clock clock, NonceSource nonce) {
+        this(new InMemoryDefinitionRegistry(), transport, new SessionCoordinator(), clock, nonce);
     }
 
     /**
@@ -113,7 +124,7 @@ public final class Phase0ApiClient implements ApiClient {
      * @param registry  definition registry
      * @param transport outbound HTTP
      * @param sessions  session coordinator
-     * @param clock     injectable clock for {@code now: epochMillis}
+     * @param clock     injectable clock for {@code now: epochMillis} / {@code now: isoOffset}
      */
     public Phase0ApiClient(
             InMemoryDefinitionRegistry registry,
@@ -121,10 +132,28 @@ public final class Phase0ApiClient implements ApiClient {
             SessionCoordinator sessions,
             Clock clock
     ) {
+        this(registry, transport, sessions, clock, NonceSource.uuid());
+    }
+
+    /**
+     * @param registry  definition registry
+     * @param transport outbound HTTP
+     * @param sessions  session coordinator
+     * @param clock     injectable clock
+     * @param nonce     injectable nonce source
+     */
+    public Phase0ApiClient(
+            InMemoryDefinitionRegistry registry,
+            HttpTransport transport,
+            SessionCoordinator sessions,
+            Clock clock,
+            NonceSource nonce
+    ) {
         this.registry = registry;
         this.transport = transport;
         this.sessions = sessions;
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.nonce = nonce == null ? NonceSource.uuid() : nonce;
         this.memorySecrets = new MapSecretProvider();
         this.secrets = CredentialResolver.phase0(memorySecrets);
     }
@@ -204,7 +233,15 @@ public final class Phase0ApiClient implements ApiClient {
         CompletableFuture<ExecutionResult> future = CompletableFuture.supplyAsync(() -> {
             try {
                 return LinearFlowExecutor.execute(
-                        plan, transport, command.input(), cancellation, sessions, clock, secrets, snapshot.executionId());
+                        plan,
+                        transport,
+                        command.input(),
+                        cancellation,
+                        sessions,
+                        clock,
+                        secrets,
+                        snapshot.executionId(),
+                        nonce);
             } finally {
                 inflight.remove(snapshot.executionId());
             }

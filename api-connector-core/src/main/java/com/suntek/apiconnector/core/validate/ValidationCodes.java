@@ -34,6 +34,7 @@ public final class ValidationCodes {
     public static final String VAL_PIPE_PORT_REQUIRED = "VAL_PIPE_PORT_REQUIRED";
     public static final String VAL_PIPE_UNKNOWN_NODE = "VAL_PIPE_UNKNOWN_NODE";
     public static final String VAL_PIPE_CARDINALITY = "VAL_PIPE_CARDINALITY";
+    public static final String VAL_ASSIGN_FORM = "VAL_ASSIGN_FORM";
 
     private ValidationCodes() {
     }
