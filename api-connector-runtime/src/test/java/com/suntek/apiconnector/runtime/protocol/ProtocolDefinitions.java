@@ -27,6 +27,10 @@ final class ProtocolDefinitions {
         return read("idps-aksk.yaml");
     }
 
+    static String huaweiIvs() {
+        return read("huawei-ivs.yaml");
+    }
+
     private static String read(String name) {
         Path[] candidates = {
                 Path.of("..", "docs", "design", "v2.7-protocols", name),

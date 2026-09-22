@@ -1,0 +1,120 @@
+# Protocol table: docs/design/v2.7-protocols/huawei-ivs.md
+schema:
+  version: 1
+
+definition:
+  id: huawei-ivs
+  revision: 1
+  authProfile: huawei-ivs-cookie-v1
+
+credentials:
+  account:
+    type: username-password
+    usernameRef: secret/huawei-ivs/username
+    passwordRef: secret/huawei-ivs/password
+    apiId: huawei-ivs
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://ivs.example"
+  userName:
+    type: secret
+    scope: EXECUTION
+  password:
+    type: secret
+    scope: EXECUTION
+
+session:
+  ttl: 25m
+  failureCooldown: 5s
+  cookies: true
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+requests:
+  deviceList:
+    method: GET
+    url: "{global.baseUrl}/device/deviceList/v1.0"
+    cookies: fromStore
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+  login:
+    method: POST
+    url: "{global.baseUrl}/loginInfo/login/v1.0"
+    headers:
+      Content-Type: "application/json"
+    cookies: acceptSetCookie
+    body:
+      pipeline: jsonBody
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  jsonBody:
+    nodes:
+      - id: json
+        type: codec.json
+        ports:
+          in: { name: object, type: object, required: true }
+          out: { name: body, type: bytes }
+    edges: []
+
+flows:
+  business:
+    steps:
+      - id: deviceList
+        request: deviceList
+        pipeline: identity
+        transitions:
+          - when:
+              status: 401
+            action: AUTHENTICATE
+            then: REPLAY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: bindLogin
+        assign:
+          execution.userName: { credential: account.username }
+          execution.password: { credential: account.password }
+      - id: login
+        request: login
+        pipeline: jsonBody
+        transitions:
+          - when:
+              all:
+                - status: 200
+                - jsonpath:
+                    path: $.resultCode
+                    equals: "0"
+            action: CONTINUE
+          - when:
+              status: 200
+            action: FAIL
+            session: AUTH_FAILED
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED

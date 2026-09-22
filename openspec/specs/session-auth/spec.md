@@ -63,3 +63,10 @@ Cookie state SHALL live under the session cookie context. Cookie persistence MUS
 #### Scenario: Cookie plus token session
 - **WHEN** authentication sets cookies and a token
 - **THEN** subsequent business requests send those cookies from the session cookie store and MUST NOT invent cookies from prior raw responses outside the store
+
+### Requirement: Cookie-only session is sufficient
+Authentication SHALL be allowed to mark a session VALID after committing cookies to the session cookie store without also storing a companion token. Outbound business requests that declare cookies from the store MUST send those cookies and MUST NOT be required to send Authorization or a token query parameter.
+
+#### Scenario: Cookie without bearer
+- **WHEN** authentication accepts `Set-Cookie` into the store and does not extract a token
+- **THEN** the replayed business request includes the store-built `Cookie` header and MUST NOT include `Authorization`
