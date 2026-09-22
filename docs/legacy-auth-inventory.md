@@ -66,7 +66,7 @@ AUTH-01 satisfied via five existing Wave 1 catalogs + built-in providers wired i
 1. List `controller/*Controller.java` and `client/*/*Client.java` under system-thirdpart.
 2. Classify auth: OAuth, HMAC, API key, Bearer login, Cookie, SDK, 国密, none.
 3. Map to `profile-registry.md` profile ID and L1/L2/L3.
-4. Assign migration wave per [01-CONTEXT.md](../.planning/phases/01-auth-plugin-architecture/01-CONTEXT.md) D-01.
+4. Assign migration wave per Wave 1 / Wave 2+ columns in this inventory (historical GSD Phase 1 D-01; `.planning/` removed after V2.7 baseline).
 5. Assign path: existing Java ✅ / new Java L2 / Groovy / deferred.
 
 *Audit date: 2026-06-17 | Plan: 01-06*
