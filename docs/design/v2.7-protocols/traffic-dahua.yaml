@@ -1,0 +1,351 @@
+# Protocol table: docs/design/v2.7-protocols/traffic-dahua.md
+schema:
+  version: 1
+
+definition:
+  id: traffic-dahua
+  revision: 1
+  authProfile: traffic-dahua-md5-v1
+
+credentials:
+  dahuaUser:
+    type: secret
+    valueRef: secret/traffic-dahua/username
+    apiId: traffic-dahua
+  dahuaPass:
+    type: secret
+    valueRef: secret/traffic-dahua/password
+    apiId: traffic-dahua
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://dahua.example"
+  token:
+    type: secret
+    scope: SESSION
+  userName:
+    type: secret
+    scope: EXECUTION
+  clientType:
+    type: string
+    scope: EXECUTION
+  signature:
+    type: string
+    scope: EXECUTION
+  randomKey:
+    type: string
+    scope: EXECUTION
+  encryptType:
+    type: string
+    scope: EXECUTION
+  expiredTime:
+    type: number
+    scope: EXECUTION
+  realm:
+    type: string
+    scope: FLOW
+  p1:
+    type: string
+    scope: FLOW
+  p2:
+    type: string
+    scope: FLOW
+  pTmp:
+    type: string
+    scope: FLOW
+  enc:
+    type: string
+    scope: FLOW
+
+session:
+  ttl: 18h
+  failureCooldown: 5s
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 32
+  executionTimeout: 15s
+
+requests:
+  deviceStub:
+    method: GET
+    url: "{global.baseUrl}/videoService/devices/stub"
+    headers:
+      X-Subject-Token:
+        secretVar: session.token
+        sink: HEADER
+      Content-Type: "application/json;charset=UTF-8"
+      X-Api-Version: "V1.0"
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+  challengeAuthorize:
+    method: POST
+    url: "{global.baseUrl}/videoService/accounts/authorize"
+    headers:
+      Content-Type: "application/json;charset=UTF-8"
+      X-Api-Version: "V1.0"
+    body:
+      pipeline: jsonBody
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+  tokenAuthorize:
+    method: POST
+    url: "{global.baseUrl}/videoService/accounts/authorize"
+    headers:
+      Content-Type: "application/json;charset=UTF-8"
+      X-Api-Version: "V1.0"
+    body:
+      pipeline: jsonBody
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  jsonBody:
+    nodes:
+      - id: json
+        type: codec.json
+        ports:
+          in: { name: object, type: object, required: true }
+          out: { name: body, type: bytes }
+    edges: []
+
+  hashPwd:
+    nodes:
+      - id: canonical
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - secretRef: dahuaPass
+              sink: HASH
+        ports:
+          in_secret: { type: secret, required: true }
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: canonical.out
+        to: hasher.in
+
+  hashUserP1:
+    nodes:
+      - id: canonical
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - secretRef: dahuaUser
+              sink: HASH
+            - var: flow.p1
+        ports:
+          in_secret: { type: secret, required: true }
+          in_digest: { type: string, required: true }
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: canonical.out
+        to: hasher.in
+
+  hashP2:
+    nodes:
+      - id: canonical
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - var: flow.p2
+        ports:
+          in_digest: { type: string, required: true }
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: canonical.out
+        to: hasher.in
+
+  hashRealm:
+    nodes:
+      - id: canonical
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - secretRef: dahuaUser
+              sink: HASH
+            - value: ":"
+            - var: flow.realm
+            - value: ":"
+            - var: flow.pTmp
+        ports:
+          in_secret: { type: secret, required: true }
+          in_a: { type: string, required: true }
+          in_realm: { type: string, required: true }
+          in_b: { type: string, required: true }
+          in_tmp: { type: string, required: true }
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: canonical.out
+        to: hasher.in
+
+  hashSign:
+    nodes:
+      - id: canonical
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - var: flow.enc
+            - value: ":"
+            - var: execution.randomKey
+        ports:
+          in_enc: { type: string, required: true }
+          in_sep: { type: string, required: true }
+          in_rk: { type: string, required: true }
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: canonical.out
+        to: hasher.in
+
+flows:
+  business:
+    steps:
+      - id: deviceStub
+        request: deviceStub
+        pipeline: identity
+        transitions:
+          - when:
+              status: 401
+            action: AUTHENTICATE
+            then: REPLAY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: bindChallenge
+        assign:
+          execution.userName: { credential: dahuaUser.value }
+          execution.clientType: "web"
+      - id: challengeAuthorize
+        request: challengeAuthorize
+        pipeline: jsonBody
+        transitions:
+          - when:
+              all:
+                - status: 401
+                - jsonpath:
+                    path: $.randomKey
+                - jsonpath:
+                    path: $.realm
+                - jsonpath:
+                    path: $.encryptType
+                    equals: MD5
+            action: CONTINUE
+          - when:
+              status: 401
+            action: FAIL
+            session: AUTH_FAILED
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED
+      - id: extractRealm
+        extract:
+          from:
+            jsonpath: $.realm
+          to: flow.realm
+      - id: extractRandomKey
+        extract:
+          from:
+            jsonpath: $.randomKey
+          to: execution.randomKey
+      - id: extractEncryptType
+        extract:
+          from:
+            jsonpath: $.encryptType
+          to: execution.encryptType
+      - id: hashPwd
+        pipeline: hashPwd
+        output:
+          flow.p1: hasher.hex
+      - id: hashUserP1
+        pipeline: hashUserP1
+        output:
+          flow.p2: hasher.hex
+      - id: hashP2
+        pipeline: hashP2
+        output:
+          flow.pTmp: hasher.hex
+      - id: hashRealm
+        pipeline: hashRealm
+        output:
+          flow.enc: hasher.hex
+      - id: hashSign
+        pipeline: hashSign
+        output:
+          execution.signature: hasher.hex
+      - id: bindTokenBody
+        assign:
+          execution.expiredTime: 86400
+      - id: tokenAuthorize
+        request: tokenAuthorize
+        pipeline: jsonBody
+        transitions:
+          - when:
+              status: 200
+            action: CONTINUE
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED
+      - id: storeToken
+        extract:
+          from:
+            jsonpath: $.token
+            as: secret
+          to: session.token
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

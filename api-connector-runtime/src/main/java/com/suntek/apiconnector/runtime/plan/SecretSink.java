@@ -16,5 +16,6 @@ public enum SecretSink {
     HMAC,
     HEADER,
     QUERY,
-    BODY
+    BODY,
+    HASH
 }

@@ -21,11 +21,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, hmac-sha256).
+ * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, hmac-sha256, hasher.md5).
  *
  * @author Gensokyo
  * @since 2026-09-15
@@ -77,8 +78,14 @@ public final class PipelineExecutor {
                     ports.put(id + ".out", new DataValue.BytesValue(canonical));
                     ports.put(id + ".canonical", ports.get(id + ".out"));
                 }
+                case "hasher.md5" -> {
+                    byte[] data = findInboundBytes(ports, pipeline, id + ".in");
+                    String hex = Md5Hasher.hex(data == null ? new byte[0] : data);
+                    ports.put(id + ".out", new DataValue.StringValue(hex));
+                    ports.put(id + ".hex", ports.get(id + ".out"));
+                }
                 case "signer.hmac-sha256" -> {
-                    byte[] data = findBytes(ports, "canonicalizer.concat", pipeline);
+                    byte[] data = findBytes(ports);
                     SecretValue keySecret = null;
                     for (Object edgeRaw : pipeline.edges()) {
                         Map<String, Object> edge = YamlMaps.map(edgeRaw);
@@ -157,12 +164,14 @@ public final class PipelineExecutor {
             Map<String, Object> part = YamlMaps.map(partRaw);
             if (part.containsKey("secretRef")) {
                 SecretValue secret = secrets.requireCredential(plan, String.valueOf(part.get("secretRef")), "value");
-                sinks.check(secret, SecretSink.HMAC, new SinkDestination(plan.definitionId()));
+                sinks.check(secret, declaredSink(part, SecretSink.HMAC), new SinkDestination(plan.definitionId()));
                 String[] holder = new String[1];
                 secret.use(bytes -> holder[0] = new String(bytes, StandardCharsets.UTF_8));
                 out.append(holder[0] == null ? "" : holder[0]);
             } else if (part.containsKey("var")) {
                 out.append(readVar(String.valueOf(part.get("var")), variables));
+            } else if (part.containsKey("value")) {
+                out.append(String.valueOf(part.get("value")));
             }
         }
         return out.toString().getBytes(StandardCharsets.UTF_8);
@@ -201,7 +210,7 @@ public final class PipelineExecutor {
         Map<String, Object> part = raw instanceof Map<?, ?> ? YamlMaps.map(raw) : Map.of("value", raw);
         if (part.containsKey("secretRef")) {
             SecretValue secret = secrets.requireCredential(plan, String.valueOf(part.get("secretRef")), "value");
-            sinks.check(secret, SecretSink.HMAC, new SinkDestination(plan.definitionId()));
+            sinks.check(secret, declaredSink(part, SecretSink.HMAC), new SinkDestination(plan.definitionId()));
             String[] holder = new String[1];
             secret.use(bytes -> holder[0] = new String(bytes, StandardCharsets.UTF_8));
             return holder[0] == null ? "" : holder[0];
@@ -213,6 +222,14 @@ public final class PipelineExecutor {
             return String.valueOf(part.get("value"));
         }
         return raw == null ? "" : String.valueOf(raw);
+    }
+
+    private static SecretSink declaredSink(Map<String, Object> part, SecretSink defaultSink) {
+        Object raw = part.get("sink");
+        if (raw == null) {
+            return defaultSink;
+        }
+        return SecretSink.valueOf(String.valueOf(raw).toUpperCase(Locale.ROOT).replace('-', '_'));
     }
 
     private static String readVar(String path, VariableRuntime variables) {
@@ -239,7 +256,24 @@ public final class PipelineExecutor {
         };
     }
 
-    private static byte[] findBytes(Map<String, DataValue> ports, String unused, CompiledPipeline pipeline) {
+    private static byte[] findInboundBytes(Map<String, DataValue> ports, CompiledPipeline pipeline, String toPort) {
+        for (Object edgeRaw : pipeline.edges()) {
+            Map<String, Object> edge = YamlMaps.map(edgeRaw);
+            String to = YamlMaps.stringOrNull(edge.get("to"));
+            if (!toPort.equals(to)) {
+                continue;
+            }
+            if (edge.get("from") instanceof String from) {
+                DataValue value = ports.get(from);
+                if (value instanceof DataValue.BytesValue(byte[] bytes)) {
+                    return bytes;
+                }
+            }
+        }
+        return findBytes(ports);
+    }
+
+    private static byte[] findBytes(Map<String, DataValue> ports) {
         for (DataValue value : ports.values()) {
             if (value instanceof DataValue.BytesValue(byte[] bytes)) {
                 return bytes;
@@ -250,7 +284,6 @@ public final class PipelineExecutor {
 
     private static DataValue executionObject(VariableRuntime variables) {
         Map<String, DataValue> fields = new LinkedHashMap<>();
-        // best-effort: empty object when caller did not supply input
         return new DataValue.ObjectValue(Map.copyOf(fields));
     }
 }

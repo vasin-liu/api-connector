@@ -31,6 +31,10 @@ final class ProtocolDefinitions {
         return read("huawei-ivs.yaml");
     }
 
+    static String trafficDahua() {
+        return read("traffic-dahua.yaml");
+    }
+
     private static String read(String name) {
         Path[] candidates = {
                 Path.of("..", "docs", "design", "v2.7-protocols", name),

@@ -153,6 +153,266 @@ class PipelineGraphValidatorTest {
         assertCode(yaml, ValidationCodes.VAL_PIPE_TYPE);
     }
 
+    @Test
+    void unknownHasherTypeIsRejected() {
+        String yaml = mockC().replace("signer.hmac-sha256", "hasher.md5-vendor");
+        assertCode(yaml, ValidationCodes.VAL_PIPE_UNKNOWN_NODE);
+    }
+
+    @Test
+    void secretEdgeDirectlyIntoHasherInFailsType() {
+        String yaml = """
+                schema:
+                  version: 1
+                definition:
+                  id: hasher-secret-edge
+                  revision: 1
+                  authProfile: none
+                credentials:
+                  dahuaPass:
+                    type: secret
+                    valueRef: secret/hasher-secret-edge/pass
+                    apiId: hasher-secret-edge
+                variables:
+                  baseUrl:
+                    type: string
+                    scope: GLOBAL
+                    value: "https://hasher.example"
+                limits:
+                  maxAuthAttempts: 1
+                  maxAuthDepth: 1
+                  transitionLimit: 8
+                  executionTimeout: 10s
+                requests:
+                  ping:
+                    method: GET
+                    url: "{global.baseUrl}/ping"
+                pipelines:
+                  hashPass:
+                    nodes:
+                      - id: hasher
+                        type: hasher.md5
+                        ports:
+                          in: { name: in, type: bytes, required: true }
+                          out: { name: hex, type: string }
+                    edges:
+                      - from:
+                          secretRef: dahuaPass
+                        to: hasher.in
+                        sink: HASH
+                flows:
+                  business:
+                    steps:
+                      - id: ping
+                        request: ping
+                        transitions:
+                          - when:
+                              status: 200
+                            action: SUCCESS
+                """;
+        assertCode(yaml, ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
+    void stringEdgeDirectlyIntoHasherInFailsType() {
+        String yaml = """
+                schema:
+                  version: 1
+                definition:
+                  id: hasher-string-edge
+                  revision: 1
+                  authProfile: none
+                credentials: {}
+                variables:
+                  baseUrl:
+                    type: string
+                    scope: GLOBAL
+                    value: "https://hasher.example"
+                  digest:
+                    type: string
+                    scope: FLOW
+                    value: "abc"
+                limits:
+                  maxAuthAttempts: 1
+                  maxAuthDepth: 1
+                  transitionLimit: 8
+                  executionTimeout: 10s
+                requests:
+                  ping:
+                    method: GET
+                    url: "{global.baseUrl}/ping"
+                pipelines:
+                  hashString:
+                    nodes:
+                      - id: hasher
+                        type: hasher.md5
+                        ports:
+                          in: { name: in, type: bytes, required: true }
+                          out: { name: hex, type: string }
+                    edges:
+                      - from:
+                          var: flow.digest
+                        to: hasher.in
+                flows:
+                  business:
+                    steps:
+                      - id: ping
+                        request: ping
+                        transitions:
+                          - when:
+                              status: 200
+                            action: SUCCESS
+                """;
+        assertCode(yaml, ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
+    void hmacSinkOnHashAdmissionConcatIsDenied() {
+        String yaml = hashPwdYaml("HMAC");
+        assertCode(yaml, ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
+    void omittedSinkOnHashAdmissionConcatIsDenied() {
+        String yaml = """
+                schema:
+                  version: 1
+                definition:
+                  id: hash-omit-sink
+                  revision: 1
+                  authProfile: none
+                credentials:
+                  dahuaPass:
+                    type: secret
+                    valueRef: secret/hash-omit-sink/pass
+                    apiId: hash-omit-sink
+                variables:
+                  baseUrl:
+                    type: string
+                    scope: GLOBAL
+                    value: "https://hasher.example"
+                  p1:
+                    type: string
+                    scope: FLOW
+                limits:
+                  maxAuthAttempts: 1
+                  maxAuthDepth: 1
+                  transitionLimit: 8
+                  executionTimeout: 10s
+                requests:
+                  ping:
+                    method: GET
+                    url: "{global.baseUrl}/ping"
+                pipelines:
+                  hashPwd:
+                    nodes:
+                      - id: canonical
+                        type: canonicalizer.concat
+                        config:
+                          separator: ""
+                          parts:
+                            - secretRef: dahuaPass
+                        ports:
+                          in_secret: { type: secret, required: true }
+                          out: { name: canonical, type: bytes }
+                      - id: hasher
+                        type: hasher.md5
+                        ports:
+                          in: { name: in, type: bytes, required: true }
+                          out: { name: hex, type: string }
+                    edges:
+                      - from: canonical.out
+                        to: hasher.in
+                flows:
+                  business:
+                    steps:
+                      - id: hash
+                        pipeline: hashPwd
+                        output:
+                          flow.p1: hasher.hex
+                      - id: ping
+                        request: ping
+                        transitions:
+                          - when:
+                              status: 200
+                            action: SUCCESS
+                """;
+        assertCode(yaml, ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
+    void hashSinkOnConcatIntoHasherCompiles() {
+        var plan = PlanCompiler.compile(hashPwdYaml("HASH"));
+        assertThat(plan.pipelines()).containsKey("hashPwd");
+    }
+
+    private static String hashPwdYaml(String sink) {
+        return """
+                schema:
+                  version: 1
+                definition:
+                  id: hash-pwd
+                  revision: 1
+                  authProfile: none
+                credentials:
+                  dahuaPass:
+                    type: secret
+                    valueRef: secret/hash-pwd/pass
+                    apiId: hash-pwd
+                variables:
+                  baseUrl:
+                    type: string
+                    scope: GLOBAL
+                    value: "https://hasher.example"
+                  p1:
+                    type: string
+                    scope: FLOW
+                limits:
+                  maxAuthAttempts: 1
+                  maxAuthDepth: 1
+                  transitionLimit: 8
+                  executionTimeout: 10s
+                requests:
+                  ping:
+                    method: GET
+                    url: "{global.baseUrl}/ping"
+                pipelines:
+                  hashPwd:
+                    nodes:
+                      - id: canonical
+                        type: canonicalizer.concat
+                        config:
+                          separator: ""
+                          parts:
+                            - secretRef: dahuaPass
+                              sink: %s
+                        ports:
+                          in_secret: { type: secret, required: true }
+                          out: { name: canonical, type: bytes }
+                      - id: hasher
+                        type: hasher.md5
+                        ports:
+                          in: { name: in, type: bytes, required: true }
+                          out: { name: hex, type: string }
+                    edges:
+                      - from: canonical.out
+                        to: hasher.in
+                flows:
+                  business:
+                    steps:
+                      - id: hash
+                        pipeline: hashPwd
+                        output:
+                          flow.p1: hasher.hex
+                      - id: ping
+                        request: ping
+                        transitions:
+                          - when:
+                              status: 200
+                            action: SUCCESS
+                """.formatted(sink);
+    }
+
     private static void assertCode(String yaml, String code) {
         assertThatThrownBy(() -> PlanCompiler.compile(yaml))
                 .isInstanceOf(DefinitionValidationException.class)

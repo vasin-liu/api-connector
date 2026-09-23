@@ -50,6 +50,23 @@ class SecretSinkPolicyTest {
     }
 
     @Test
+    void hashSinkAllowedWhenApiMatches() {
+        SecretSinkPolicy policy = new SecretSinkPolicy();
+        SecretValue secret = ByteSecret.utf8(new SecretMetadata("secret/dahua/pass", "dahua"), "p");
+        policy.check(secret, SecretSink.HASH, new SinkDestination("dahua"));
+    }
+
+    @Test
+    void hashSinkDeniedWhenApiMismatch() {
+        SecretSinkPolicy policy = new SecretSinkPolicy();
+        SecretValue secret = ByteSecret.utf8(new SecretMetadata("secret/dahua/pass", "dahua"), "p");
+        assertThatThrownBy(() -> policy.check(secret, SecretSink.HASH, new SinkDestination("other")))
+                .isInstanceOf(ExecuteException.class)
+                .satisfies(ex -> assertThat(((ExecuteException) ex).code())
+                        .isEqualTo(ExecuteException.SECRET_SINK_DENIED));
+    }
+
+    @Test
     void executeDeniesWrongApiAuthorizationBeforeSend() {
         FakeTransport transport = new FakeTransport();
         SessionCoordinator sessions = new SessionCoordinator();

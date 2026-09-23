@@ -32,7 +32,8 @@ public final class PipelineGraphValidator {
             "codec.json",
             "canonicalizer.concat",
             "canonicalizer.sorted-query",
-            "signer.hmac-sha256"
+            "signer.hmac-sha256",
+            "hasher.md5"
     );
 
     private PipelineGraphValidator() {
@@ -54,6 +55,7 @@ public final class PipelineGraphValidator {
             checkUnknown(nodes, path, violations);
             markConfigBindings(nodes);
             checkCardinalityAndTypes(nodes, edges, path, violations);
+            checkHashAdmission(nodes, edges, path, violations);
             checkRequired(nodes, path, violations);
             checkCycle(nodes, edges, path, violations);
         });
@@ -122,6 +124,10 @@ public final class PipelineGraphValidator {
             case "canonicalizer.sorted-query" -> {
                 ports.put("in", new Port("in", "query", "object", true));
                 ports.put("out", new Port("out", "canonical", "bytes", false));
+            }
+            case "hasher.md5" -> {
+                ports.put("in", new Port("in", "in", "bytes", true));
+                ports.put("out", new Port("out", "hex", "string", false));
             }
             default -> {
             }
@@ -259,6 +265,67 @@ public final class PipelineGraphValidator {
                         "type " + edge.sourceType + " is not assignable to " + toPort.type
                 ));
             }
+        }
+    }
+
+    /**
+     * Concat / sorted-query nodes that feed {@code hasher.md5} MUST declare {@code sink: HASH}
+     * on every {@code secretRef} part. Omitted sink (HMAC default) or another sink is denied.
+     */
+    private static void checkHashAdmission(Map<String, Node> nodes, List<Edge> edges, String path, List<Violation> violations) {
+        Set<String> hashFeeders = new HashSet<>();
+        for (Edge edge : edges) {
+            Node to = nodes.get(edge.toNode);
+            if (to == null || !"hasher.md5".equals(to.type) || !"in".equals(edge.toPort)) {
+                continue;
+            }
+            if (edge.fromNode != null) {
+                hashFeeders.add(edge.fromNode);
+            }
+        }
+        for (String feederId : hashFeeders) {
+            Node feeder = nodes.get(feederId);
+            if (feeder == null) {
+                continue;
+            }
+            if ("canonicalizer.concat".equals(feeder.type)) {
+                denyNonHashSecretParts(YamlMaps.list(feeder.config.get("parts")), path, feederId, violations);
+            } else if ("canonicalizer.sorted-query".equals(feeder.type)) {
+                YamlMaps.map(feeder.config.get("params")).forEach((name, raw) -> {
+                    if (raw instanceof Map<?, ?>) {
+                        denyNonHashSecretPart(YamlMaps.map(raw), path, feederId, "params/" + name, violations);
+                    }
+                });
+            }
+        }
+    }
+
+    private static void denyNonHashSecretParts(List<Object> parts, String path, String nodeId, List<Violation> violations) {
+        for (int i = 0; i < parts.size(); i++) {
+            Map<String, Object> part = YamlMaps.map(parts.get(i));
+            denyNonHashSecretPart(part, path, nodeId, "parts/" + i, violations);
+        }
+    }
+
+    private static void denyNonHashSecretPart(
+            Map<String, Object> part,
+            String path,
+            String nodeId,
+            String partPath,
+            List<Violation> violations
+    ) {
+        if (!part.containsKey("secretRef")) {
+            return;
+        }
+        Object sinkRaw = part.get("sink");
+        String sink = sinkRaw == null ? "" : String.valueOf(sinkRaw).toUpperCase(Locale.ROOT).replace('-', '_');
+        if (!"HASH".equals(sink)) {
+            violations.add(new Violation(
+                    ValidationCodes.VAL_PIPE_TYPE,
+                    path + "/nodes/" + nodeId + "/config/" + partPath,
+                    "hash admission requires sink HASH on secretRef (got "
+                            + (sinkRaw == null ? "omitted" : sinkRaw) + ")"
+            ));
         }
     }
 
