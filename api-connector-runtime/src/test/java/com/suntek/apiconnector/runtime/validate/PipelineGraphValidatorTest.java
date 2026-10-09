@@ -145,6 +145,78 @@ class PipelineGraphValidatorTest {
     }
 
     @Test
+    void unknownHmacEncodingIsRejected() {
+        String yaml = mockC().replace(
+                "        type: signer.hmac-sha256\n        ports:",
+                "        type: signer.hmac-sha256\n        config:\n          encoding: mystery\n        ports:"
+        );
+        assertCode(yaml, ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
+    void unknownMd5EncodingIsRejected() {
+        String yaml = """
+                schema:
+                  version: 1
+                definition:
+                  id: md5-encoding-reject
+                  revision: 1
+                  authProfile: none
+                credentials:
+                  dahuaPass:
+                    type: secret
+                    valueRef: secret/md5-encoding-reject/pass
+                    apiId: md5-encoding-reject
+                variables:
+                  baseUrl:
+                    type: string
+                    scope: GLOBAL
+                    value: "https://hasher.example"
+                limits:
+                  maxAuthAttempts: 1
+                  maxAuthDepth: 1
+                  transitionLimit: 8
+                  executionTimeout: 10s
+                requests:
+                  ping:
+                    method: GET
+                    url: "{global.baseUrl}/ping"
+                pipelines:
+                  hashPwd:
+                    nodes:
+                      - id: canonical
+                        type: canonicalizer.concat
+                        config:
+                          separator: ""
+                          parts:
+                            - secretRef: dahuaPass
+                              sink: HASH
+                        ports:
+                          out: { name: canonical, type: bytes }
+                      - id: hasher
+                        type: hasher.md5
+                        config:
+                          encoding: mystery
+                        ports:
+                          in: { name: in, type: bytes, required: true }
+                          out: { name: hex, type: string }
+                    edges:
+                      - from: canonical.out
+                        to: hasher.in
+                flows:
+                  business:
+                    steps:
+                      - id: ping
+                        request: ping
+                        transitions:
+                          - when:
+                              status: 200
+                            action: SUCCESS
+                """;
+        assertCode(yaml, ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
     void p7_codecThenHmacWithoutEdgesFailsType() {
         String yaml = mockC().replace(
                 "          out: { name: body, type: bytes }\n    edges: []",

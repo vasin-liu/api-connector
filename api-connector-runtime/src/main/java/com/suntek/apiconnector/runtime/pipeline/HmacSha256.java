@@ -8,11 +8,10 @@ package com.suntek.apiconnector.runtime.pipeline;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.util.HexFormat;
 import java.util.Objects;
 
 /**
- * HMAC-SHA256 signer. Output is lowercase hex.
+ * HMAC-SHA256 signer. Default pipeline encoding is lowercase hex.
  *
  * @author Gensokyo
  * @since 2026-09-15
@@ -25,18 +24,38 @@ public final class HmacSha256 {
     /**
      * @param key  HMAC key
      * @param data message
-     * @return lowercase hex digest
+     * @return raw HMAC-SHA256 digest
      */
-    public static String hex(byte[] key, byte[] data) {
+    public static byte[] digest(byte[] key, byte[] data) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(data, "data");
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(key, "HmacSHA256"));
-            return HexFormat.of().formatHex(mac.doFinal(data));
+            return mac.doFinal(data);
         } catch (Exception e) {
             throw new IllegalStateException("HMAC-SHA256 failed", e);
         }
+    }
+
+    /**
+     * @param key  HMAC key
+     * @param data message
+     * @return lowercase hex digest
+     */
+    public static String hex(byte[] key, byte[] data) {
+        return DigestEncoding.HEX.format(digest(key, data));
+    }
+
+    /**
+     * @param key      HMAC key
+     * @param data     message
+     * @param encoding digest encoding
+     * @return encoded digest
+     */
+    public static String encode(byte[] key, byte[] data, DigestEncoding encoding) {
+        DigestEncoding mode = encoding == null ? DigestEncoding.HEX : encoding;
+        return mode.format(digest(key, data));
     }
 
     /**
@@ -46,5 +65,18 @@ public final class HmacSha256 {
      */
     public static String hexUtf8(String key, String data) {
         return hex(key.getBytes(StandardCharsets.UTF_8), data.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * @param key  UTF-8 key
+     * @param data UTF-8 message
+     * @return RFC 4648 Base64 digest
+     */
+    public static String base64Utf8(String key, String data) {
+        return encode(
+                key.getBytes(StandardCharsets.UTF_8),
+                data.getBytes(StandardCharsets.UTF_8),
+                DigestEncoding.BASE64
+        );
     }
 }

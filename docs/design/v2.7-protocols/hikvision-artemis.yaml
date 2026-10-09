@@ -1,0 +1,226 @@
+# Protocol table: docs/design/v2.7-protocols/hikvision-artemis.md
+# Two pipelines: sorted-query then concat + HMAC base64. No canonicalizer.artemis-*.
+schema:
+  version: 1
+
+definition:
+  id: hikvision-artemis
+  revision: 1
+  authProfile: hikvision-artemis-aksk-v1
+
+credentials:
+  accessKey:
+    type: secret
+    valueRef: secret/hikvision-artemis/access-key
+    apiId: hikvision-artemis
+  secretKey:
+    type: secret
+    valueRef: secret/hikvision-artemis/secret-key
+    apiId: hikvision-artemis
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://hikvision.example"
+  httpMethod:
+    type: string
+    scope: GLOBAL
+    value: "GET"
+  uriPath:
+    type: string
+    scope: GLOBAL
+    value: "/artemis/api/demo"
+  accept:
+    type: string
+    scope: GLOBAL
+    value: "*/*"
+  contentType:
+    type: string
+    scope: GLOBAL
+    value: "application/text;charset=UTF-8"
+  signatureHeaders:
+    type: string
+    scope: GLOBAL
+    value: "X-Ca-Key,X-Ca-Nonce,X-Ca-Timestamp"
+  start:
+    type: string
+    scope: GLOBAL
+    value: "0"
+  size:
+    type: string
+    scope: GLOBAL
+    value: "20"
+  timestamp:
+    type: string
+    scope: EXECUTION
+  nonce:
+    type: string
+    scope: EXECUTION
+  canonicalQuery:
+    type: string
+    scope: EXECUTION
+  accessKey:
+    type: secret
+    scope: EXECUTION
+  signature:
+    type: string
+    scope: FLOW
+  signed:
+    type: boolean
+    scope: FLOW
+    value: false
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+  onStaleFlowBinding: RETRY_FLOW
+
+requests:
+  demoGet:
+    method: GET
+    url: "{global.baseUrl}{global.uriPath}"
+    headers:
+      Accept: "{global.accept}"
+      Content-Type: "{global.contentType}"
+      X-Ca-Key: "{execution.accessKey}"
+      X-Ca-Nonce: "{execution.nonce}"
+      X-Ca-Timestamp: "{execution.timestamp}"
+      X-Ca-Signature: "{flow.signature}"
+      X-Ca-Signature-Headers: "{global.signatureHeaders}"
+    query:
+      start: "{global.start}"
+      size: "{global.size}"
+    replay:
+      replayability: CONDITIONALLY_SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  resourceQuery:
+    nodes:
+      - id: canonical
+        type: canonicalizer.sorted-query
+        config:
+          separator: "&"
+          encoding: none
+          params:
+            start:
+              var: global.start
+            size:
+              var: global.size
+        ports:
+          in: { name: query, type: object, required: true }
+          out: { name: canonical, type: bytes }
+    edges: []
+
+  stringToSignHmac:
+    nodes:
+      - id: envelope
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.httpMethod }
+            - { value: "\n" }
+            - { var: global.accept }
+            - { value: "\n" }
+            - { var: global.contentType }
+            - { value: "\nX-Ca-Key:" }
+            - { secretRef: accessKey }
+            - { value: "\nX-Ca-Nonce:" }
+            - { var: execution.nonce }
+            - { value: "\nX-Ca-Timestamp:" }
+            - { var: execution.timestamp }
+            - { value: "\n" }
+            - { var: global.uriPath }
+            - { value: "?" }
+            - { var: execution.canonicalQuery }
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: hmac
+        type: signer.hmac-sha256
+        config:
+          encoding: base64
+        ports:
+          in: { name: canonical, type: bytes, required: true }
+          key: { name: key, type: secret, required: true }
+          out: { name: signature, type: string }
+    edges:
+      - from: envelope.out
+        to: hmac.in
+      - from:
+          secretRef: secretKey
+        to: hmac.key
+        sink: HMAC
+
+flows:
+  business:
+    steps:
+      - id: stamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: nonce
+        assign:
+          execution.nonce: { generate: nonce }
+      - id: bindKey
+        assign:
+          execution.accessKey: { credential: accessKey.value }
+      - id: canonicalizeQuery
+        pipeline: resourceQuery
+        output:
+          execution.canonicalQuery: canonical.out
+      - id: sign
+        pipeline: stringToSignHmac
+        output:
+          flow.signature: hmac.out
+      - id: markSigned
+        assign:
+          flow.signed: true
+      - id: demoGet
+        request: demoGet
+        pipeline: identity
+        transitions:
+          - when:
+              status: 503
+            action: RETRY_FLOW
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: newTimestamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: newNonce
+        assign:
+          execution.nonce: { generate: nonce }
+      - id: bindKey
+        assign:
+          execution.accessKey: { credential: accessKey.value }
+      - id: canonicalizeQuery
+        pipeline: resourceQuery
+        output:
+          execution.canonicalQuery: canonical.out
+      - id: sign
+        pipeline: stringToSignHmac
+        output:
+          flow.signature: hmac.out
+      - id: markSigned
+        assign:
+          flow.signed: true
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

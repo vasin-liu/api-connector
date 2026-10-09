@@ -7,6 +7,7 @@ package com.suntek.apiconnector.runtime.validate;
 
 import com.suntek.apiconnector.core.validate.ValidationCodes;
 import com.suntek.apiconnector.core.validate.Violation;
+import com.suntek.apiconnector.runtime.pipeline.DigestEncoding;
 import com.suntek.apiconnector.runtime.pipeline.SortedQueryCanonicalizer;
 import com.suntek.apiconnector.runtime.yaml.YamlMaps;
 
@@ -192,6 +193,20 @@ public final class PipelineGraphValidator {
                 if (rawEncoding != null) {
                     try {
                         SortedQueryCanonicalizer.parseEncoding(String.valueOf(rawEncoding));
+                    } catch (IllegalArgumentException e) {
+                        violations.add(new Violation(
+                                ValidationCodes.VAL_PIPE_TYPE,
+                                path + "/nodes/" + node.id + "/config/encoding",
+                                e.getMessage()
+                        ));
+                    }
+                }
+            }
+            if ("signer.hmac-sha256".equals(node.type) || "hasher.md5".equals(node.type)) {
+                Object rawEncoding = node.config.get("encoding");
+                if (rawEncoding != null) {
+                    try {
+                        DigestEncoding.parse(String.valueOf(rawEncoding));
                     } catch (IllegalArgumentException e) {
                         violations.add(new Violation(
                                 ValidationCodes.VAL_PIPE_TYPE,

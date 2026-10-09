@@ -80,9 +80,15 @@ public final class PipelineExecutor {
                 }
                 case "hasher.md5" -> {
                     byte[] data = findInboundBytes(ports, pipeline, id + ".in");
-                    String hex = Md5Hasher.hex(data == null ? new byte[0] : data);
-                    ports.put(id + ".out", new DataValue.StringValue(hex));
-                    ports.put(id + ".hex", ports.get(id + ".out"));
+                    DigestEncoding encoding = digestEncoding(rawNode);
+                    String encoded = Md5Hasher.encode(data == null ? new byte[0] : data, encoding);
+                    DataValue value = new DataValue.StringValue(encoded);
+                    ports.put(id + ".out", value);
+                    if (encoding == DigestEncoding.HEX) {
+                        ports.put(id + ".hex", value);
+                    } else {
+                        ports.put(id + ".base64", value);
+                    }
                 }
                 case "signer.hmac-sha256" -> {
                     byte[] data = findBytes(ports);
@@ -109,9 +115,19 @@ public final class PipelineExecutor {
                     sinks.check(keySecret, SecretSink.HMAC, new SinkDestination(plan.definitionId()));
                     byte[][] keyHolder = new byte[1][];
                     keySecret.use(bytes -> keyHolder[0] = bytes);
-                    String hex = HmacSha256.hex(keyHolder[0] == null ? new byte[0] : keyHolder[0], data == null ? new byte[0] : data);
-                    ports.put(id + ".out", new DataValue.StringValue(hex));
-                    ports.put(id + ".hex", ports.get(id + ".out"));
+                    DigestEncoding encoding = digestEncoding(rawNode);
+                    String encoded = HmacSha256.encode(
+                            keyHolder[0] == null ? new byte[0] : keyHolder[0],
+                            data == null ? new byte[0] : data,
+                            encoding
+                    );
+                    DataValue value = new DataValue.StringValue(encoded);
+                    ports.put(id + ".out", value);
+                    if (encoding == DigestEncoding.HEX) {
+                        ports.put(id + ".hex", value);
+                    } else {
+                        ports.put(id + ".base64", value);
+                    }
                 }
                 default -> {
                 }
@@ -144,6 +160,12 @@ public final class PipelineExecutor {
             }
         }
         return JsonBytes.utf8(object);
+    }
+
+    private static DigestEncoding digestEncoding(Map<String, Object> rawNode) {
+        Map<String, Object> config = YamlMaps.map(rawNode.get("config"));
+        String raw = config.get("encoding") == null ? null : String.valueOf(config.get("encoding"));
+        return DigestEncoding.parse(raw);
     }
 
     private static byte[] concat(

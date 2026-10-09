@@ -31,6 +31,10 @@ final class ProtocolDefinitions {
         return read("huawei-ivs.yaml");
     }
 
+    static String hikvisionArtemis() {
+        return read("hikvision-artemis.yaml");
+    }
+
     static String trafficDahua() {
         return read("traffic-dahua.yaml");
     }
