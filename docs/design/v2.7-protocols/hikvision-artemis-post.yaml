@@ -1,0 +1,280 @@
+# Protocol table: docs/design/v2.7-protocols/hikvision-artemis-post.md
+# Raw-body POST: one GLOBAL body literal feeds both the wire body and the
+# hasher.md5 base64 Content-MD5. No codec.json body, no canonicalizer.artemis-*.
+schema:
+  version: 1
+
+definition:
+  id: hikvision-artemis-post
+  revision: 1
+  authProfile: hikvision-artemis-post-aksk-v1
+
+credentials:
+  accessKey:
+    type: secret
+    valueRef: secret/hikvision-artemis-post/access-key
+    apiId: hikvision-artemis-post
+  secretKey:
+    type: secret
+    valueRef: secret/hikvision-artemis-post/secret-key
+    apiId: hikvision-artemis-post
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://hikvision.example"
+  httpMethod:
+    type: string
+    scope: GLOBAL
+    value: "POST"
+  uriPath:
+    type: string
+    scope: GLOBAL
+    value: "/artemis/api/demo"
+  accept:
+    type: string
+    scope: GLOBAL
+    value: "*/*"
+  contentType:
+    type: string
+    scope: GLOBAL
+    value: "application/json;charset=UTF-8"
+  bodyJson:
+    type: string
+    scope: GLOBAL
+    value: '{"pageNo":1,"pageSize":20}'
+  signatureHeaders:
+    type: string
+    scope: GLOBAL
+    value: "X-Ca-Key,X-Ca-Nonce,X-Ca-Timestamp"
+  start:
+    type: string
+    scope: GLOBAL
+    value: "0"
+  size:
+    type: string
+    scope: GLOBAL
+    value: "20"
+  timestamp:
+    type: string
+    scope: EXECUTION
+  nonce:
+    type: string
+    scope: EXECUTION
+  canonicalQuery:
+    type: string
+    scope: EXECUTION
+  contentMd5:
+    type: string
+    scope: EXECUTION
+  accessKey:
+    type: secret
+    scope: EXECUTION
+  signature:
+    type: string
+    scope: FLOW
+  signed:
+    type: boolean
+    scope: FLOW
+    value: false
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+  onStaleFlowBinding: RETRY_FLOW
+
+requests:
+  demoPost:
+    method: POST
+    url: "{global.baseUrl}{global.uriPath}"
+    headers:
+      Accept: "{global.accept}"
+      Content-Type: "{global.contentType}"
+      Content-MD5: "{execution.contentMd5}"
+      X-Ca-Key: "{execution.accessKey}"
+      X-Ca-Nonce: "{execution.nonce}"
+      X-Ca-Timestamp: "{execution.timestamp}"
+      X-Ca-Signature: "{flow.signature}"
+      X-Ca-Signature-Headers: "{global.signatureHeaders}"
+    query:
+      start: "{global.start}"
+      size: "{global.size}"
+    body:
+      pipeline: wireBody
+    replay:
+      replayability: CONDITIONALLY_SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  wireBody:
+    nodes:
+      - id: literal
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.bodyJson }
+        ports:
+          out: { name: canonical, type: bytes }
+    edges: []
+
+  resourceQuery:
+    nodes:
+      - id: canonical
+        type: canonicalizer.sorted-query
+        config:
+          separator: "&"
+          encoding: none
+          params:
+            start:
+              var: global.start
+            size:
+              var: global.size
+        ports:
+          in: { name: query, type: object, required: true }
+          out: { name: canonical, type: bytes }
+    edges: []
+
+  bodyContentMd5:
+    nodes:
+      - id: canonical
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.bodyJson }
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        config:
+          encoding: base64
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: md5, type: string }
+    edges:
+      - from: canonical.out
+        to: hasher.in
+
+  stringToSignHmac:
+    nodes:
+      - id: envelope
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.httpMethod }
+            - { value: "\n" }
+            - { var: global.accept }
+            - { value: "\n" }
+            - { var: execution.contentMd5 }
+            - { value: "\n" }
+            - { var: global.contentType }
+            - { value: "\nX-Ca-Key:" }
+            - { secretRef: accessKey }
+            - { value: "\nX-Ca-Nonce:" }
+            - { var: execution.nonce }
+            - { value: "\nX-Ca-Timestamp:" }
+            - { var: execution.timestamp }
+            - { value: "\n" }
+            - { var: global.uriPath }
+            - { value: "?" }
+            - { var: execution.canonicalQuery }
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: hmac
+        type: signer.hmac-sha256
+        config:
+          encoding: base64
+        ports:
+          in: { name: canonical, type: bytes, required: true }
+          key: { name: key, type: secret, required: true }
+          out: { name: signature, type: string }
+    edges:
+      - from: envelope.out
+        to: hmac.in
+      - from:
+          secretRef: secretKey
+        to: hmac.key
+        sink: HMAC
+
+flows:
+  business:
+    steps:
+      - id: stamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: nonce
+        assign:
+          execution.nonce: { generate: nonce }
+      - id: bindKey
+        assign:
+          execution.accessKey: { credential: accessKey.value }
+      - id: canonicalizeQuery
+        pipeline: resourceQuery
+        output:
+          execution.canonicalQuery: canonical.out
+      - id: digestBody
+        pipeline: bodyContentMd5
+        output:
+          execution.contentMd5: hasher.out
+      - id: sign
+        pipeline: stringToSignHmac
+        output:
+          flow.signature: hmac.out
+      - id: markSigned
+        assign:
+          flow.signed: true
+      - id: demoPost
+        request: demoPost
+        pipeline: identity
+        transitions:
+          - when:
+              status: 503
+            action: RETRY_FLOW
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: newTimestamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: newNonce
+        assign:
+          execution.nonce: { generate: nonce }
+      - id: bindKey
+        assign:
+          execution.accessKey: { credential: accessKey.value }
+      - id: canonicalizeQuery
+        pipeline: resourceQuery
+        output:
+          execution.canonicalQuery: canonical.out
+      - id: digestBody
+        pipeline: bodyContentMd5
+        output:
+          execution.contentMd5: hasher.out
+      - id: sign
+        pipeline: stringToSignHmac
+        output:
+          flow.signature: hmac.out
+      - id: markSigned
+        assign:
+          flow.signed: true
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

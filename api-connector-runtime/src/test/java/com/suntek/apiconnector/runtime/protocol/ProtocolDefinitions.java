@@ -35,6 +35,10 @@ final class ProtocolDefinitions {
         return read("hikvision-artemis.yaml");
     }
 
+    static String hikvisionArtemisPost() {
+        return read("hikvision-artemis-post.yaml");
+    }
+
     static String trafficDahua() {
         return read("traffic-dahua.yaml");
     }

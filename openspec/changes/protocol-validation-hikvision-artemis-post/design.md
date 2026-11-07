@@ -77,9 +77,9 @@ HMAC-SHA256 Base64 of the query `size=20&start=0` alone is `rYxkl/xQs/ivi1994S7F
 
 ### D5. RETRY_FLOW on 503, body unchanged
 
-**Choice:** Business POST 503 → `RETRY_FLOW` (GET / IDPS pattern). No authentication flow. Second send is a new request instance: new timestamp, nonce, and signature. Body bytes and `Content-MD5` stay the published values.
+**Choice:** Business POST 503 → `RETRY_FLOW` (GET pattern: the freshness rebuild steps — new timestamp, new nonce, re-bind AK, sorted-query, body re-digest, re-sign — are declared as the YAML `authentication` flow; it sends no HTTP and stores no session token). The runtime routes `RETRY_FLOW` through that flow, then renders a new request instance. Second send: new timestamp, nonce, and signature. Body bytes and `Content-MD5` stay the published values.
 
-**Why:** The body is not a freshness field. A retry that rebuilds Content-MD5 from a changing execution object would hide the `codec.json` bug D2 forbids.
+**Why:** `FlowRuntime.retryFlow` delegates to the `authentication` flow; with none declared, `RETRY_FLOW` terminates `FAILURE`. The GET gate already ships this exact re-sign-only flow shape (its r2 vector comes from the same mechanism). Re-digesting the frozen `bodyJson` re-produces the identical `Content-MD5`, proving the body is not derived from the mutable execution object D2 forbids.
 
 ### D6. Stop if the catalog cannot keep one body
 
