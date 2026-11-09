@@ -1,0 +1,123 @@
+# Protocol table: docs/design/v2.7-protocols/hikvision-pms.md
+# Hikvision PMS download token: one GLOBAL body literal feeds both the wire
+# body and the hasher.md5 hex-upper token material. No codec.json, no vendor node.
+schema:
+  version: 1
+
+definition:
+  id: hikvision-pms
+  revision: 1
+  authProfile: hikvision-pms-download-token-v1
+
+credentials:
+  secretKey:
+    type: secret
+    valueRef: secret/hikvision-pms/secret-key
+    apiId: hikvision-pms
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://hikvision-pms.example"
+  uriPath:
+    type: string
+    scope: GLOBAL
+    value: "/getParkingInfo"
+  contentType:
+    type: string
+    scope: GLOBAL
+    value: "application/json;charset=UTF-8"
+  bodyJson:
+    type: string
+    scope: GLOBAL
+    value: '{"appkey":"test-ak"}'
+  token:
+    type: string
+    scope: EXECUTION
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+  onStaleFlowBinding: RETRY_FLOW
+
+requests:
+  demoPost:
+    method: POST
+    url: "{global.baseUrl}{global.uriPath}"
+    headers:
+      Content-Type: "{global.contentType}"
+    query:
+      token: "{execution.token}"
+    body:
+      pipeline: wireBody
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  wireBody:
+    nodes:
+      - id: literal
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.bodyJson }
+        ports:
+          out: { name: canonical, type: bytes }
+    edges: []
+
+  tokenHash:
+    nodes:
+      - id: material
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.uriPath }
+            - { var: global.bodyJson }
+            - secretRef: secretKey
+              sink: HASH
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        config:
+          encoding: hex-upper
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: md5, type: string }
+    edges:
+      - from: material.out
+        to: hasher.in
+
+flows:
+  business:
+    steps:
+      - id: digest
+        pipeline: tokenHash
+        output:
+          execution.token: hasher.out
+      - id: demoPost
+        request: demoPost
+        pipeline: identity
+        transitions:
+          - when:
+              status: 503
+            action: RETRY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS

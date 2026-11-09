@@ -29,4 +29,17 @@ class Md5HasherTest {
         assertThat(Md5Hasher.encode(data, DigestEncoding.HEX))
                 .isEqualTo(Md5Hasher.hex(data));
     }
+
+    @Test
+    void hexUpperIsUppercaseMd5NotLowercaseHex() {
+        byte[] data = "/getParkingInfo{\"appkey\":\"test-ak\"}test-sk".getBytes(StandardCharsets.UTF_8);
+        assertThat(Md5Hasher.encode(data, DigestEncoding.HEX_UPPER))
+                .isEqualTo("EDAA4B3136EA75DF9A435C95B920DD9E");
+        assertThat(Md5Hasher.encode(data, DigestEncoding.HEX_UPPER))
+                .isNotEqualTo(Md5Hasher.hex(data));
+        assertThat(Md5Hasher.encode(data, DigestEncoding.HEX_UPPER))
+                .isNotEqualTo(Md5Hasher.encode(data, DigestEncoding.BASE64));
+        assertThat(Md5Hasher.encode(data, DigestEncoding.HEX))
+                .isEqualTo("edaa4b3136ea75df9a435c95b920dd9e");
+    }
 }

@@ -7,6 +7,8 @@ package com.suntek.apiconnector.runtime.pipeline;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -47,5 +49,18 @@ class HmacSha256Test {
                 .hasMessageContaining("unknown digest encoding");
         assertThat(DigestEncoding.parse(null)).isEqualTo(DigestEncoding.HEX);
         assertThat(DigestEncoding.parse("hex")).isEqualTo(DigestEncoding.HEX);
+    }
+
+    @Test
+    void hexUpperEmitsUppercaseHexAndNeverTheLowercaseHexBinding() {
+        String stringToSign = "GET\n*/*\napplication/text;charset=UTF-8\nX-Ca-Key:test-ak\nX-Ca-Nonce:1\nX-Ca-Timestamp:1000\n/artemis/api/demo?size=20&start=0";
+        String lowercase = HmacSha256.hexUtf8("test-sk", stringToSign);
+        String upper = DigestEncoding.HEX_UPPER.format(HmacSha256.digest(
+                "test-sk".getBytes(StandardCharsets.UTF_8),
+                stringToSign.getBytes(StandardCharsets.UTF_8)));
+        assertThat(upper)
+                .isEqualTo("F2F3396769F8DC74A90D1A4745B2893505601DB8163FD13ED687192338E1134A");
+        assertThat(upper).isNotEqualTo(lowercase);
+        assertThat(DigestEncoding.parse("hex-upper")).isEqualTo(DigestEncoding.HEX_UPPER);
     }
 }

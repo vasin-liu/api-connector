@@ -86,7 +86,7 @@ public final class PipelineExecutor {
                     ports.put(id + ".out", value);
                     if (encoding == DigestEncoding.HEX) {
                         ports.put(id + ".hex", value);
-                    } else {
+                    } else if (encoding == DigestEncoding.BASE64) {
                         ports.put(id + ".base64", value);
                     }
                 }
@@ -125,7 +125,7 @@ public final class PipelineExecutor {
                     ports.put(id + ".out", value);
                     if (encoding == DigestEncoding.HEX) {
                         ports.put(id + ".hex", value);
-                    } else {
+                    } else if (encoding == DigestEncoding.BASE64) {
                         ports.put(id + ".base64", value);
                     }
                 }

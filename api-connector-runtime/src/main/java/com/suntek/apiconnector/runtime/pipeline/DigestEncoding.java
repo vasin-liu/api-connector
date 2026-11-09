@@ -18,6 +18,7 @@ import java.util.Locale;
 public enum DigestEncoding {
 
     HEX,
+    HEX_UPPER,
     BASE64;
 
     /**
@@ -28,6 +29,7 @@ public enum DigestEncoding {
         byte[] data = digest == null ? new byte[0] : digest;
         return switch (this) {
             case HEX -> HexFormat.of().formatHex(data);
+            case HEX_UPPER -> HexFormat.of().formatHex(data).toUpperCase(Locale.ROOT);
             case BASE64 -> Base64.getEncoder().encodeToString(data);
         };
     }
@@ -35,7 +37,7 @@ public enum DigestEncoding {
     /**
      * @param raw YAML {@code encoding} value; {@code null} or blank is {@link #HEX}
      * @return encoding
-     * @throws IllegalArgumentException when the value is not {@code hex} or {@code base64}
+     * @throws IllegalArgumentException when the value is not {@code hex}, {@code hex-upper}, or {@code base64}
      */
     public static DigestEncoding parse(String raw) {
         if (raw == null || raw.isBlank()) {
@@ -43,6 +45,7 @@ public enum DigestEncoding {
         }
         return switch (raw.trim().toLowerCase(Locale.ROOT)) {
             case "hex" -> HEX;
+            case "hex-upper" -> HEX_UPPER;
             case "base64" -> BASE64;
             default -> throw new IllegalArgumentException("unknown digest encoding: " + raw);
         };
