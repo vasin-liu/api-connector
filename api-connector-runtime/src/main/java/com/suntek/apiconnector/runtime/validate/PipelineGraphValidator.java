@@ -62,6 +62,7 @@ public final class PipelineGraphValidator {
         });
         checkCrossPipeline(pipelines, nodesByPipeline, violations);
         checkBodyOutputTypes(normalized, pipelines, violations);
+        checkWireBodyAdmission(normalized, pipelines, violations);
     }
 
     private static Map<String, Node> parseNodes(Map<String, Object> pipe, String path, List<Violation> violations) {
@@ -419,6 +420,133 @@ public final class PipelineGraphValidator {
         return nodesByPipeline.entrySet().stream()
                 .filter(entry -> !entry.getKey().equals(current))
                 .anyMatch(entry -> entry.getValue().contains(nodeId));
+    }
+
+    /**
+     * A concat that supplies the HTTP body admits only sink {@code BODY}. A concat that feeds
+     * {@code hasher.md5} still admits only sink {@code HASH}. A flow binding whose variable is
+     * later reread by the body concat is the same wire-body producer.
+     */
+    private static void checkWireBodyAdmission(
+            Map<String, Object> normalized,
+            Map<String, Object> pipelines,
+            List<Violation> violations
+    ) {
+        Set<String> bodyPipelineIds = new HashSet<>();
+        YamlMaps.map(normalized.get("requests")).forEach((requestId, raw) -> {
+            String pipelineId = YamlMaps.stringOrNull(YamlMaps.map(YamlMaps.map(raw).get("body")).get("pipeline"));
+            if (pipelineId != null) {
+                bodyPipelineIds.add(pipelineId);
+            }
+        });
+        Set<String> varsReadByBody = new HashSet<>();
+        for (String pipelineId : bodyPipelineIds) {
+            Map<String, Object> pipe = YamlMaps.map(pipelines.get(pipelineId));
+            boolean hasherFeeder = feedsHasher(pipe);
+            for (Object nodeRaw : YamlMaps.list(pipe.get("nodes"))) {
+                Map<String, Object> node = YamlMaps.map(nodeRaw);
+                if (!"canonicalizer.concat".equals(YamlMaps.stringOrNull(node.get("type")))) {
+                    continue;
+                }
+                String nodeId = YamlMaps.stringOrNull(node.get("id"));
+                List<Object> parts = YamlMaps.list(YamlMaps.map(node.get("config")).get("parts"));
+                boolean hasSecret = false;
+                for (int i = 0; i < parts.size(); i++) {
+                    Map<String, Object> part = YamlMaps.map(parts.get(i));
+                    String var = YamlMaps.stringOrNull(part.get("var"));
+                    if (var != null) {
+                        varsReadByBody.add(var);
+                    }
+                    if (!part.containsKey("secretRef")) {
+                        continue;
+                    }
+                    hasSecret = true;
+                    denyUnlessBodySink(part, "/pipelines/" + pipelineId, nodeId, "parts/" + i, violations);
+                }
+                if (hasherFeeder && hasSecret) {
+                    violations.add(new Violation(
+                            ValidationCodes.VAL_PIPE_TYPE,
+                            "/pipelines/" + pipelineId + "/nodes/" + nodeId,
+                            "pipeline cannot both supply the HTTP body and feed hasher.md5"
+                    ));
+                }
+            }
+        }
+        YamlMaps.map(normalized.get("flows")).forEach((flowId, flowRaw) -> {
+            for (Object stepRaw : YamlMaps.list(YamlMaps.map(flowRaw).get("steps"))) {
+                Map<String, Object> step = YamlMaps.map(stepRaw);
+                String pipelineId = YamlMaps.stringOrNull(step.get("pipeline"));
+                if (pipelineId == null) {
+                    continue;
+                }
+                Map<String, Object> pipe = YamlMaps.map(pipelines.get(pipelineId));
+                YamlMaps.map(step.get("output")).forEach((target, portRefRaw) -> {
+                    if (!varsReadByBody.contains(target)) {
+                        return;
+                    }
+                    String portRef = YamlMaps.stringOrNull(portRefRaw);
+                    if (portRef == null || !portRef.contains(".")) {
+                        return;
+                    }
+                    String nodeId = portRef.substring(0, portRef.indexOf('.'));
+                    for (Object nodeRaw : YamlMaps.list(pipe.get("nodes"))) {
+                        Map<String, Object> node = YamlMaps.map(nodeRaw);
+                        if (!nodeId.equals(YamlMaps.stringOrNull(node.get("id")))) {
+                            continue;
+                        }
+                        if (!"canonicalizer.concat".equals(YamlMaps.stringOrNull(node.get("type")))) {
+                            continue;
+                        }
+                        List<Object> parts = YamlMaps.list(YamlMaps.map(node.get("config")).get("parts"));
+                        for (int i = 0; i < parts.size(); i++) {
+                            Map<String, Object> part = YamlMaps.map(parts.get(i));
+                            if (part.containsKey("secretRef")) {
+                                denyUnlessBodySink(part, "/pipelines/" + pipelineId, nodeId, "parts/" + i, violations);
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    private static void denyUnlessBodySink(
+            Map<String, Object> part,
+            String path,
+            String nodeId,
+            String partPath,
+            List<Violation> violations
+    ) {
+        Object sinkRaw = part.get("sink");
+        String sink = sinkRaw == null ? "" : String.valueOf(sinkRaw).toUpperCase(Locale.ROOT).replace('-', '_');
+        if (!"BODY".equals(sink)) {
+            violations.add(new Violation(
+                    ValidationCodes.VAL_PIPE_TYPE,
+                    path + "/nodes/" + nodeId + "/config/" + partPath,
+                    "wire body admission requires sink BODY on secretRef (got "
+                            + (sinkRaw == null ? "omitted" : sinkRaw) + ")"
+            ));
+        }
+    }
+
+    private static boolean feedsHasher(Map<String, Object> pipe) {
+        Map<String, String> types = new HashMap<>();
+        for (Object nodeRaw : YamlMaps.list(pipe.get("nodes"))) {
+            Map<String, Object> node = YamlMaps.map(nodeRaw);
+            types.put(YamlMaps.stringOrNull(node.get("id")), YamlMaps.stringOrNull(node.get("type")));
+        }
+        for (Object edgeRaw : YamlMaps.list(pipe.get("edges"))) {
+            Map<String, Object> edge = YamlMaps.map(edgeRaw);
+            String to = YamlMaps.stringOrNull(edge.get("to"));
+            if (to == null || !to.contains(".")) {
+                continue;
+            }
+            int dot = to.indexOf('.');
+            if ("in".equals(to.substring(dot + 1)) && "hasher.md5".equals(types.get(to.substring(0, dot)))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void checkBodyOutputTypes(

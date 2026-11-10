@@ -57,6 +57,26 @@ class SecretSinkPolicyTest {
     }
 
     @Test
+    void bodySinkAllowedWhenApiMatches() {
+        SecretSinkPolicy policy = new SecretSinkPolicy();
+        SecretValue secret = ByteSecret.utf8(new SecretMetadata("secret/hikvision-pms/appkey", "hikvision-pms"), "test-ak");
+        policy.check(secret, SecretSink.BODY, new SinkDestination("hikvision-pms"));
+    }
+
+    @Test
+    void bodySinkDeniedWhenApiMismatch() {
+        SecretSinkPolicy policy = new SecretSinkPolicy();
+        SecretValue secret = ByteSecret.utf8(new SecretMetadata("secret/hikvision-pms/appkey", "hikvision-pms"), "test-ak");
+        assertThatThrownBy(() -> policy.check(secret, SecretSink.BODY, new SinkDestination("other-api")))
+                .isInstanceOf(ExecuteException.class)
+                .satisfies(ex -> {
+                    ExecuteException denied = (ExecuteException) ex;
+                    assertThat(denied.code()).isEqualTo(ExecuteException.SECRET_SINK_DENIED);
+                    assertThat(denied.getMessage()).doesNotContain("test-ak");
+                });
+    }
+
+    @Test
     void hashSinkDeniedWhenApiMismatch() {
         SecretSinkPolicy policy = new SecretSinkPolicy();
         SecretValue secret = ByteSecret.utf8(new SecretMetadata("secret/dahua/pass", "dahua"), "p");

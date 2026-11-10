@@ -52,8 +52,11 @@ class TrafficHikvisionPmsProtocolTest {
         assertThat(plan.definitionId()).isEqualTo("hikvision-pms");
         assertThat(plan.planId()).isNotBlank();
         assertThat(plan.capabilities()).contains(PlanCapability.PIPELINE_GRAPH);
-        assertThat(plan.pipelines()).containsKeys("wireBody", "tokenHash");
+        assertThat(plan.pipelines()).containsKeys("wireBody", "sendBody", "tokenHash");
         assertThat(types(plan, "wireBody")).containsExactly("canonicalizer.concat");
+        assertThat(types(plan, "sendBody")).containsExactly("canonicalizer.concat");
+        assertThat(ProtocolDefinitions.hikvisionPms()).doesNotContain("{\"appkey\":\"test-ak\"}");
+        assertThat(ProtocolDefinitions.hikvisionPms()).doesNotContain("secretRef: appkey\n              sink: HASH");
         assertThat(types(plan, "tokenHash")).contains("canonicalizer.concat", "hasher.md5");
         for (String pipelineId : plan.pipelines().keySet()) {
             assertThat(types(plan, pipelineId))
@@ -92,6 +95,7 @@ class TrafficHikvisionPmsProtocolTest {
                 json(200, "{\"parkName\":\"stub\"}")
         );
         Phase0ApiClient client = new Phase0ApiClient(transport);
+        client.secrets().put("secret/hikvision-pms/appkey", "test-ak");
         client.secrets().put("secret/hikvision-pms/secret-key", SK);
         client.loadPublished(ProtocolDefinitions.hikvisionPms());
 
@@ -122,9 +126,12 @@ class TrafficHikvisionPmsProtocolTest {
         assertThat(r2).isNotSameAs(r1);
         assertThat(r2.body().orElseThrow()).isEqualTo(BODY_BYTES);
         assertThat(query(r2)).contains("token=" + TOKEN);
-        assertThat(query(r1) + " " + r1.headers() + " " + BODY).doesNotContain(SK);
-        assertThat(query(r2) + " " + r2.headers() + " " + BODY).doesNotContain(SK);
+        assertThat(query(r1) + " " + r1.headers()).doesNotContain(SK);
+        assertThat(new String(wireBody, StandardCharsets.UTF_8)).doesNotContain(SK);
+        assertThat(query(r2) + " " + r2.headers()).doesNotContain(SK);
+        assertThat(new String(r2.body().orElseThrow(), StandardCharsets.UTF_8)).doesNotContain(SK);
         assertThat(String.valueOf(result.trace())).doesNotContain(SK);
+        assertThat(String.valueOf(result.trace())).doesNotContain("test-ak");
     }
 
     private static List<String> types(ExecutionPlan plan, String pipelineId) {

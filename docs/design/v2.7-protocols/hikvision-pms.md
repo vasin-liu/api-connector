@@ -22,15 +22,17 @@ Source: legacy `suntek-system/system-thirdpart` `HikvisionPmsClient.withToken` +
 
 No `X-Ca-*` headers. No `Date`. No `Authorization`. The secret is never a header value.
 
-## Body (frozen)
+## Body
 
 | Field | Value |
 |-------|--------|
-| Wire body | UTF-8 of GLOBAL `bodyJson` = `{"appkey":"test-ak"}` (compact, no spaces) |
-| Body pipeline | one `canonicalizer.concat` of `{ var: global.bodyJson }` — no `codec.json` |
-| Hashed bytes | the **same** `bodyJson` literal — hash material and wire bytes are one source |
+| Wire body | UTF-8 `{"appkey":"test-ak"}` (compact, no spaces) |
+| Appkey | credential `appkey`, `valueRef: secret/hikvision-pms/appkey`, sink `BODY` |
+| Assembly | `wireBody` concat of `{"appkey":"` + appkey + `"}`, bound to `execution.wireBody` |
+| Request body | `sendBody` concat of `{ var: execution.wireBody }` only |
+| Hashed bytes | that same `execution.wireBody` binding — not a second `secretRef` for appkey |
 
-One GLOBAL string is the only body source. `appkey` is a **fixture literal** in this gate; production appkey composition is a recorded out-of-scope gap (concat parts with `secretRef` must declare sink `HASH`, so a credential cannot flow into a wire-body concat without a future catalog decision).
+The definition does not contain the JSON literal `{"appkey":"test-ak"}`. Fixture material `test-ak` is injected at execute time. No `codec.json`.
 
 ## Token (query)
 
@@ -39,12 +41,12 @@ token = MD5( uriPath + bodyBytes + secret ).toUpperCase()
 ```
 
 - `uriPath` = path only (`/getParkingInfo`) — no host, no query.
-- `bodyBytes` = the exact wire body bytes.
+- `bodyBytes` = the exact wire body bytes (`execution.wireBody`).
 - `secret` = UTF-8 secret key, enters via concat part `secretRef` with sink `HASH`.
 - Digest encoding: `hasher.md5` with `encoding: hex-upper` — **uppercase** hexadecimal MD5.
 - Placed as query parameter `token` on the POST URL.
 
-Pipeline: `canonicalizer.concat` (parts `[uriPath, bodyJson, secretRef(HASH)]`) → `hasher.md5` `encoding: hex-upper` → bind `execution.token`. Flow MUST NOT MD5 or uppercase.
+Pipeline: `canonicalizer.concat` (parts `[uriPath, execution.wireBody, secretRef secretKey (sink HASH)]`) → `hasher.md5` `encoding: hex-upper` → bind `execution.token`. Flow MUST NOT MD5 or uppercase. Appkey is not a part of this concat.
 
 ## Known test vector (FakeTransport only)
 
@@ -65,7 +67,7 @@ Formula generality (table only, no second request in the gate):
 
 The token is a **deterministic** function of URI path and body — no timestamp, no nonce, no session. YAML uses `replayability: SAFE` + 503 → `RETRY_REQUEST`:
 
-1. Business: bind token pipeline → POST `/getParkingInfo?token=...`.
+1. Assemble `execution.wireBody`, bind the token pipeline, then POST `/getParkingInfo?token=...`.
 2. FakeTransport returns **503**.
 3. `RETRY_REQUEST` re-renders the request: a **new `RawHttpRequest` instance** whose body bytes and `token` **equal** the first send. Identical r1/r2 token is REQUIRED behavior here — the opposite of the Artemis gates, whose freshness fields must change.
 4. No `authentication` flow: `RETRY_REQUEST` in the runtime does not route through authentication.
@@ -77,8 +79,8 @@ The token is a **deterministic** function of URI path and body — no timestamp,
 | Content-Type spacing | `application/json;charset=UTF-8` (hutool) | Portal doc may show `application/json` bare |
 | Body serialization | compact JSON, insertion order (`appkey` first) | Live fastjson version specifics |
 | Hash material joins | plain concatenation, no separators | — |
-| `getParkingInfo` body | `{"appkey":"test-ak"}` (HashMap, single key) | Other endpoints add business fields |
-| Production appkey | **Out of scope** — recorded catalog gap | Needs secret→body admission or concat bytes input |
+| `getParkingInfo` body | `{"appkey":"test-ak"}` assembled from the appkey credential | Other endpoints add business fields |
+| Appkey JSON escaping | Fixture `test-ak` has no `"` or `\` | A credential that needs escaping is a later change |
 | `/ImageServer*` binary download | **Out of scope** | Image endpoints return file bytes |
 | 503 handling | Scripted `RETRY_REQUEST` | Live portal error codes may differ |
 

@@ -1,6 +1,7 @@
 # Protocol table: docs/design/v2.7-protocols/hikvision-pms.md
-# Hikvision PMS download token: one GLOBAL body literal feeds both the wire
-# body and the hasher.md5 hex-upper token material. No codec.json, no vendor node.
+# Hikvision PMS download token: appkey is a BODY secret assembled once, bound to
+# execution.wireBody, then reread by the hash concat and the request body.
+# No codec.json, no vendor node, no second appkey secretRef.
 schema:
   version: 1
 
@@ -10,6 +11,10 @@ definition:
   authProfile: hikvision-pms-download-token-v1
 
 credentials:
+  appkey:
+    type: secret
+    valueRef: secret/hikvision-pms/appkey
+    apiId: hikvision-pms
   secretKey:
     type: secret
     valueRef: secret/hikvision-pms/secret-key
@@ -28,10 +33,9 @@ variables:
     type: string
     scope: GLOBAL
     value: "application/json;charset=UTF-8"
-  bodyJson:
+  wireBody:
     type: string
-    scope: GLOBAL
-    value: '{"appkey":"test-ak"}'
+    scope: EXECUTION
   token:
     type: string
     scope: EXECUTION
@@ -55,7 +59,7 @@ requests:
     query:
       token: "{execution.token}"
     body:
-      pipeline: wireBody
+      pipeline: sendBody
     replay:
       replayability: SAFE
       allowAutomaticReplay: true
@@ -75,7 +79,22 @@ pipelines:
         config:
           separator: ""
           parts:
-            - { var: global.bodyJson }
+            - value: '{"appkey":"'
+            - secretRef: appkey
+              sink: BODY
+            - value: '"}'
+        ports:
+          out: { name: canonical, type: bytes }
+    edges: []
+
+  sendBody:
+    nodes:
+      - id: copy
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: execution.wireBody }
         ports:
           out: { name: canonical, type: bytes }
     edges: []
@@ -88,7 +107,7 @@ pipelines:
           separator: ""
           parts:
             - { var: global.uriPath }
-            - { var: global.bodyJson }
+            - { var: execution.wireBody }
             - secretRef: secretKey
               sink: HASH
         ports:
@@ -107,6 +126,10 @@ pipelines:
 flows:
   business:
     steps:
+      - id: assemble
+        pipeline: wireBody
+        output:
+          execution.wireBody: literal.out
       - id: digest
         pipeline: tokenHash
         output:

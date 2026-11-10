@@ -418,6 +418,38 @@ class PipelineGraphValidatorTest {
         assertThat(plan.pipelines()).containsKey("hashPwd");
     }
 
+    @Test
+    void bodySinkOnWireBodyConcatCompiles() {
+        var plan = PlanCompiler.compile(wireBodyYaml("BODY"));
+        assertThat(plan.pipelines()).containsKey("sendBody");
+    }
+
+    @Test
+    void hashSinkOnWireBodyConcatIsDenied() {
+        assertCode(wireBodyYaml("HASH"), ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
+    void bodySinkOnHasherFeederIsDenied() {
+        assertCode(hashPwdYaml("BODY"), ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
+    void secretOnPipelineThatBothFeedsHasherAndSuppliesBodyIsDenied() {
+        assertCode(dualRoleBodyYaml(), ValidationCodes.VAL_PIPE_TYPE);
+    }
+
+    @Test
+    void bodyProducerBoundToExecutionVarAllowsBodySink() {
+        var plan = PlanCompiler.compile(boundWireBodyYaml("BODY"));
+        assertThat(plan.pipelines()).containsKeys("wireBody", "sendBody");
+    }
+
+    @Test
+    void hashSinkOnBoundWireBodyProducerIsDenied() {
+        assertCode(boundWireBodyYaml("HASH"), ValidationCodes.VAL_PIPE_TYPE);
+    }
+
     private static String hashPwdYaml(String sink) {
         return """
                 schema:
@@ -476,6 +508,199 @@ class PipelineGraphValidatorTest {
                         pipeline: hashPwd
                         output:
                           flow.p1: hasher.hex
+                      - id: ping
+                        request: ping
+                        transitions:
+                          - when:
+                              status: 200
+                            action: SUCCESS
+                """.formatted(sink);
+    }
+
+    private static String wireBodyYaml(String sink) {
+        return """
+                schema:
+                  version: 1
+                definition:
+                  id: wire-body
+                  revision: 1
+                  authProfile: none
+                credentials:
+                  appkey:
+                    type: secret
+                    valueRef: secret/wire-body/appkey
+                    apiId: wire-body
+                variables:
+                  baseUrl:
+                    type: string
+                    scope: GLOBAL
+                    value: "https://body.example"
+                limits:
+                  maxAuthAttempts: 1
+                  maxAuthDepth: 1
+                  transitionLimit: 8
+                  executionTimeout: 10s
+                requests:
+                  ping:
+                    method: POST
+                    url: "{global.baseUrl}/ping"
+                    body:
+                      pipeline: sendBody
+                pipelines:
+                  sendBody:
+                    nodes:
+                      - id: literal
+                        type: canonicalizer.concat
+                        config:
+                          separator: ""
+                          parts:
+                            - value: '{"appkey":"'
+                            - secretRef: appkey
+                              sink: %s
+                            - value: '"}'
+                        ports:
+                          out: { name: canonical, type: bytes }
+                    edges: []
+                flows:
+                  business:
+                    steps:
+                      - id: ping
+                        request: ping
+                        transitions:
+                          - when:
+                              status: 200
+                            action: SUCCESS
+                """.formatted(sink);
+    }
+
+    private static String dualRoleBodyYaml() {
+        return """
+                schema:
+                  version: 1
+                definition:
+                  id: wire-body
+                  revision: 1
+                  authProfile: none
+                credentials:
+                  appkey:
+                    type: secret
+                    valueRef: secret/wire-body/appkey
+                    apiId: wire-body
+                variables:
+                  baseUrl:
+                    type: string
+                    scope: GLOBAL
+                    value: "https://body.example"
+                limits:
+                  maxAuthAttempts: 1
+                  maxAuthDepth: 1
+                  transitionLimit: 8
+                  executionTimeout: 10s
+                requests:
+                  ping:
+                    method: POST
+                    url: "{global.baseUrl}/ping"
+                    body:
+                      pipeline: sendBody
+                pipelines:
+                  sendBody:
+                    nodes:
+                      - id: literal
+                        type: canonicalizer.concat
+                        config:
+                          separator: ""
+                          parts:
+                            - value: '{"appkey":"'
+                            - secretRef: appkey
+                              sink: BODY
+                            - value: '"}'
+                        ports:
+                          out: { name: canonical, type: bytes }
+                      - id: hasher
+                        type: hasher.md5
+                        ports:
+                          in: { name: in, type: bytes, required: true }
+                          out: { name: hex, type: string }
+                    edges:
+                      - from: literal.out
+                        to: hasher.in
+                flows:
+                  business:
+                    steps:
+                      - id: ping
+                        request: ping
+                        transitions:
+                          - when:
+                              status: 200
+                            action: SUCCESS
+                """;
+    }
+
+    private static String boundWireBodyYaml(String sink) {
+        return """
+                schema:
+                  version: 1
+                definition:
+                  id: wire-body-bind
+                  revision: 1
+                  authProfile: none
+                credentials:
+                  appkey:
+                    type: secret
+                    valueRef: secret/wire-body-bind/appkey
+                    apiId: wire-body-bind
+                variables:
+                  baseUrl:
+                    type: string
+                    scope: GLOBAL
+                    value: "https://body.example"
+                  wireBody:
+                    type: string
+                    scope: EXECUTION
+                limits:
+                  maxAuthAttempts: 1
+                  maxAuthDepth: 1
+                  transitionLimit: 8
+                  executionTimeout: 10s
+                requests:
+                  ping:
+                    method: POST
+                    url: "{global.baseUrl}/ping"
+                    body:
+                      pipeline: sendBody
+                pipelines:
+                  wireBody:
+                    nodes:
+                      - id: literal
+                        type: canonicalizer.concat
+                        config:
+                          separator: ""
+                          parts:
+                            - value: '{"appkey":"'
+                            - secretRef: appkey
+                              sink: %s
+                            - value: '"}'
+                        ports:
+                          out: { name: canonical, type: bytes }
+                    edges: []
+                  sendBody:
+                    nodes:
+                      - id: copy
+                        type: canonicalizer.concat
+                        config:
+                          separator: ""
+                          parts:
+                            - { var: execution.wireBody }
+                        ports:
+                          out: { name: canonical, type: bytes }
+                    edges: []
+                flows:
+                  business:
+                    steps:
+                      - id: assemble
+                        pipeline: wireBody
+                        output:
+                          execution.wireBody: literal.out
                       - id: ping
                         request: ping
                         transitions:
