@@ -1,0 +1,255 @@
+# Protocol table: docs/design/v2.7-protocols/keytop.md
+# Keytop paramsSign: sorted-query (none, exclude appId/key) + concat HASH secret
+# + hasher.md5 hex-upper, written into the JSON body field key. No codec.json.
+schema:
+  version: 1
+
+definition:
+  id: keytop
+  revision: 1
+  authProfile: keytop-params-sign-v1
+
+credentials:
+  appSecret:
+    type: secret
+    valueRef: secret/keytop/app-secret
+    apiId: keytop
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://keytop.example"
+  uriPath:
+    type: string
+    scope: GLOBAL
+    value: "/api/wec/GetFreeSpaceNum"
+  contentType:
+    type: string
+    scope: GLOBAL
+    value: "application/json;charset=UTF-8"
+  versionHeader:
+    type: string
+    scope: GLOBAL
+    value: "1.0.0"
+  acceptLanguage:
+    type: string
+    scope: GLOBAL
+    value: "zh-CN"
+  amount:
+    type: string
+    scope: GLOBAL
+    value: "100"
+  appId:
+    type: string
+    scope: GLOBAL
+    value: "85d15350778b11e9bbaa506b4b2f6421"
+  freeDetail:
+    type: string
+    scope: GLOBAL
+    value: '[{"code":"","money":100,"time":0,"type":0}]'
+  freeMoney:
+    type: string
+    scope: GLOBAL
+    value: "100"
+  freeTime:
+    type: string
+    scope: GLOBAL
+    value: "0"
+  orderNo:
+    type: string
+    scope: GLOBAL
+    value: "闽C12345"
+  outOrderNo:
+    type: string
+    scope: GLOBAL
+    value: "T20200306124536001"
+  parkId:
+    type: string
+    scope: GLOBAL
+    value: "1000001"
+  payMethod:
+    type: string
+    scope: GLOBAL
+    value: "6"
+  paySource:
+    type: string
+    scope: GLOBAL
+    value: "85d15350778b11e9bbaa506b4b2f6421"
+  payTime:
+    type: string
+    scope: GLOBAL
+    value: "2020-03-06 10:57:22"
+  payType:
+    type: string
+    scope: GLOBAL
+    value: "1006"
+  payableAmount:
+    type: string
+    scope: GLOBAL
+    value: "200"
+  paymentExt:
+    type: string
+    scope: GLOBAL
+    value: '{"deviceNo":"123456"}'
+  reqId:
+    type: string
+    scope: GLOBAL
+    value: "5be4e3e6d5704a7d91ccbd9731d970f5"
+  ts:
+    type: string
+    scope: GLOBAL
+    value: "1583744086841"
+  bodyPrefix:
+    type: string
+    scope: GLOBAL
+    value: '{"amount":100,"appId":"85d15350778b11e9bbaa506b4b2f6421","freeDetail":"[{\"code\":\"\",\"money\":100,\"time\":0,\"type\":0}]","freeMoney":100,"freeTime":0,"orderNo":"闽C12345","outOrderNo":"T20200306124536001","parkId":"1000001","payMethod":6,"paySource":"85d15350778b11e9bbaa506b4b2f6421","payTime":"2020-03-06 10:57:22","payType":1006,"payableAmount":200,"paymentExt":"{\"deviceNo\":\"123456\"}","reqId":"5be4e3e6d5704a7d91ccbd9731d970f5","ts":1583744086841,"key":"'
+  bodySuffix:
+    type: string
+    scope: GLOBAL
+    value: '"}'
+  canonical:
+    type: string
+    scope: EXECUTION
+  key:
+    type: string
+    scope: EXECUTION
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+  onStaleFlowBinding: RETRY_FLOW
+
+requests:
+  demoPost:
+    method: POST
+    url: "{global.baseUrl}{global.uriPath}"
+    headers:
+      Content-Type: "{global.contentType}"
+      version: "{global.versionHeader}"
+      accept-language: "{global.acceptLanguage}"
+    body:
+      pipeline: wireBody
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  signMaterial:
+    nodes:
+      - id: canonical
+        type: canonicalizer.sorted-query
+        config:
+          encoding: none
+          separator: "&"
+          exclude:
+            - appId
+            - key
+          params:
+            amount:
+              var: global.amount
+            appId:
+              var: global.appId
+            freeDetail:
+              var: global.freeDetail
+            freeMoney:
+              var: global.freeMoney
+            freeTime:
+              var: global.freeTime
+            orderNo:
+              var: global.orderNo
+            outOrderNo:
+              var: global.outOrderNo
+            parkId:
+              var: global.parkId
+            payMethod:
+              var: global.payMethod
+            paySource:
+              var: global.paySource
+            payTime:
+              var: global.payTime
+            payType:
+              var: global.payType
+            payableAmount:
+              var: global.payableAmount
+            paymentExt:
+              var: global.paymentExt
+            reqId:
+              var: global.reqId
+            ts:
+              var: global.ts
+        ports:
+          in: { name: query, type: object, required: true }
+          out: { name: canonical, type: bytes }
+    edges: []
+
+  digestKey:
+    nodes:
+      - id: material
+        type: canonicalizer.concat
+        config:
+          separator: "&"
+          parts:
+            - { var: execution.canonical }
+            - secretRef: appSecret
+              sink: HASH
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        config:
+          encoding: hex-upper
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: md5, type: string }
+    edges:
+      - from: material.out
+        to: hasher.in
+
+  wireBody:
+    nodes:
+      - id: literal
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.bodyPrefix }
+            - { var: execution.key }
+            - { var: global.bodySuffix }
+        ports:
+          out: { name: canonical, type: bytes }
+    edges: []
+
+flows:
+  business:
+    steps:
+      - id: canonicalize
+        pipeline: signMaterial
+        output:
+          execution.canonical: canonical.out
+      - id: digest
+        pipeline: digestKey
+        output:
+          execution.key: hasher.out
+      - id: demoPost
+        request: demoPost
+        pipeline: identity
+        transitions:
+          - when:
+              status: 503
+            action: RETRY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS

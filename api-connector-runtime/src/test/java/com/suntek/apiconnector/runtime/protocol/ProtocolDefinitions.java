@@ -43,6 +43,10 @@ final class ProtocolDefinitions {
         return read("hikvision-pms.yaml");
     }
 
+    static String keytop() {
+        return read("keytop.yaml");
+    }
+
     static String trafficDahua() {
         return read("traffic-dahua.yaml");
     }
