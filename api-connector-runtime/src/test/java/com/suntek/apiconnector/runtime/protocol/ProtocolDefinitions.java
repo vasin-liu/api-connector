@@ -47,6 +47,10 @@ final class ProtocolDefinitions {
         return read("keytop.yaml");
     }
 
+    static String shuyun() {
+        return read("shuyun.yaml");
+    }
+
     static String trafficDahua() {
         return read("traffic-dahua.yaml");
     }

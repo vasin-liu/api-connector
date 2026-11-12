@@ -1,0 +1,187 @@
+# Protocol table: docs/design/v2.7-protocols/shuyun.md
+# Empty-separator concat + hasher.sm3 hex. No hasher.shuyun-sm3.
+schema:
+  version: 1
+
+definition:
+  id: shuyun
+  revision: 1
+  authProfile: shuyun-sm3-header-v1
+
+credentials:
+  appSecret:
+    type: secret
+    valueRef: secret/shuyun/app-secret
+    apiId: shuyun
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://shuyun.example"
+  uriPath:
+    type: string
+    scope: GLOBAL
+    value: "/sznszhddpt/rest/event/list"
+  appId:
+    type: string
+    scope: GLOBAL
+    value: "test-app-id"
+  contentType:
+    type: string
+    scope: GLOBAL
+    value: "application/json;charset=UTF-8"
+  operationUserId:
+    type: string
+    scope: GLOBAL
+    value: "1"
+  operationUserName:
+    type: string
+    scope: GLOBAL
+    value: "idps"
+  operationUserCode:
+    type: string
+    scope: GLOBAL
+    value: "idps"
+  operationAppCode:
+    type: string
+    scope: GLOBAL
+    value: "jtdn"
+  bodyLiteral:
+    type: string
+    scope: GLOBAL
+    value: '{"eventType":"200170001"}'
+  timestamp:
+    type: string
+    scope: EXECUTION
+  nonce:
+    type: string
+    scope: EXECUTION
+  signature:
+    type: string
+    scope: FLOW
+  signed:
+    type: boolean
+    scope: FLOW
+    value: false
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+  onStaleFlowBinding: RETRY_FLOW
+
+requests:
+  listEvent:
+    method: POST
+    url: "{global.baseUrl}{global.uriPath}"
+    headers:
+      Content-Type: "{global.contentType}"
+      x-app-id: "{global.appId}"
+      nonce: "{execution.nonce}"
+      timestamp: "{execution.timestamp}"
+      signature: "{flow.signature}"
+      operationUserId: "{global.operationUserId}"
+      operationUserName: "{global.operationUserName}"
+      operationUserCode: "{global.operationUserCode}"
+      operationAppCode: "{global.operationAppCode}"
+    body:
+      pipeline: wireBody
+    replay:
+      replayability: CONDITIONALLY_SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  wireBody:
+    nodes:
+      - id: literal
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.bodyLiteral }
+        ports:
+          out: { name: canonical, type: bytes }
+    edges: []
+
+  signHeaders:
+    nodes:
+      - id: material
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.appId }
+            - secretRef: appSecret
+              sink: HASH
+            - { var: execution.timestamp }
+            - { var: execution.nonce }
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.sm3
+        config:
+          encoding: hex
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: material.out
+        to: hasher.in
+
+flows:
+  business:
+    steps:
+      - id: stamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: nonce
+        assign:
+          execution.nonce: { generate: nonce }
+      - id: sign
+        pipeline: signHeaders
+        output:
+          flow.signature: hasher.out
+      - id: markSigned
+        assign:
+          flow.signed: true
+      - id: listEvent
+        request: listEvent
+        pipeline: identity
+        transitions:
+          - when:
+              status: 503
+            action: RETRY_FLOW
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: newTimestamp
+        assign:
+          execution.timestamp: { now: epochMillis }
+      - id: newNonce
+        assign:
+          execution.nonce: { generate: nonce }
+      - id: sign
+        pipeline: signHeaders
+        output:
+          flow.signature: hasher.out
+      - id: markSigned
+        assign:
+          flow.signed: true
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

@@ -26,7 +26,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, hmac-sha256, hasher.md5).
+ * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, hmac-sha256,
+ * hasher.md5, hasher.sm3).
  *
  * @author Gensokyo
  * @since 2026-09-15
@@ -82,6 +83,18 @@ public final class PipelineExecutor {
                     byte[] data = findInboundBytes(ports, pipeline, id + ".in");
                     DigestEncoding encoding = digestEncoding(rawNode);
                     String encoded = Md5Hasher.encode(data == null ? new byte[0] : data, encoding);
+                    DataValue value = new DataValue.StringValue(encoded);
+                    ports.put(id + ".out", value);
+                    if (encoding == DigestEncoding.HEX) {
+                        ports.put(id + ".hex", value);
+                    } else if (encoding == DigestEncoding.BASE64) {
+                        ports.put(id + ".base64", value);
+                    }
+                }
+                case "hasher.sm3" -> {
+                    byte[] data = findInboundBytes(ports, pipeline, id + ".in");
+                    DigestEncoding encoding = digestEncoding(rawNode);
+                    String encoded = Sm3Hasher.encode(data == null ? new byte[0] : data, encoding);
                     DataValue value = new DataValue.StringValue(encoded);
                     ports.put(id + ".out", value);
                     if (encoding == DigestEncoding.HEX) {

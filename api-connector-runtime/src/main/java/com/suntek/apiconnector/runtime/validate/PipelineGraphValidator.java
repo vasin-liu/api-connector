@@ -34,7 +34,8 @@ public final class PipelineGraphValidator {
             "canonicalizer.concat",
             "canonicalizer.sorted-query",
             "signer.hmac-sha256",
-            "hasher.md5"
+            "hasher.md5",
+            "hasher.sm3"
     );
 
     private PipelineGraphValidator() {
@@ -127,7 +128,7 @@ public final class PipelineGraphValidator {
                 ports.put("in", new Port("in", "query", "object", true));
                 ports.put("out", new Port("out", "canonical", "bytes", false));
             }
-            case "hasher.md5" -> {
+            case "hasher.md5", "hasher.sm3" -> {
                 ports.put("in", new Port("in", "in", "bytes", true));
                 ports.put("out", new Port("out", "hex", "string", false));
             }
@@ -203,7 +204,9 @@ public final class PipelineGraphValidator {
                     }
                 }
             }
-            if ("signer.hmac-sha256".equals(node.type) || "hasher.md5".equals(node.type)) {
+            if ("signer.hmac-sha256".equals(node.type)
+                    || "hasher.md5".equals(node.type)
+                    || "hasher.sm3".equals(node.type)) {
                 Object rawEncoding = node.config.get("encoding");
                 if (rawEncoding != null) {
                     try {
@@ -285,14 +288,18 @@ public final class PipelineGraphValidator {
     }
 
     /**
-     * Concat / sorted-query nodes that feed {@code hasher.md5} MUST declare {@code sink: HASH}
-     * on every {@code secretRef} part. Omitted sink (HMAC default) or another sink is denied.
+     * Concat / sorted-query nodes that feed {@code hasher.md5} or {@code hasher.sm3} MUST declare
+     * {@code sink: HASH} on every {@code secretRef} part. Omitted sink (HMAC default) or another
+     * sink is denied.
      */
     private static void checkHashAdmission(Map<String, Node> nodes, List<Edge> edges, String path, List<Violation> violations) {
         Set<String> hashFeeders = new HashSet<>();
         for (Edge edge : edges) {
             Node to = nodes.get(edge.toNode);
-            if (to == null || !"hasher.md5".equals(to.type) || !"in".equals(edge.toPort)) {
+            if (to == null || !"in".equals(edge.toPort)) {
+                continue;
+            }
+            if (!"hasher.md5".equals(to.type) && !"hasher.sm3".equals(to.type)) {
                 continue;
             }
             if (edge.fromNode != null) {
@@ -424,8 +431,8 @@ public final class PipelineGraphValidator {
 
     /**
      * A concat that supplies the HTTP body admits only sink {@code BODY}. A concat that feeds
-     * {@code hasher.md5} still admits only sink {@code HASH}. A flow binding whose variable is
-     * later reread by the body concat is the same wire-body producer.
+     * {@code hasher.md5} or {@code hasher.sm3} still admits only sink {@code HASH}. A flow binding
+     * whose variable is later reread by the body concat is the same wire-body producer.
      */
     private static void checkWireBodyAdmission(
             Map<String, Object> normalized,
@@ -467,7 +474,7 @@ public final class PipelineGraphValidator {
                     violations.add(new Violation(
                             ValidationCodes.VAL_PIPE_TYPE,
                             "/pipelines/" + pipelineId + "/nodes/" + nodeId,
-                            "pipeline cannot both supply the HTTP body and feed hasher.md5"
+                            "pipeline cannot both supply the HTTP body and feed a hasher"
                     ));
                 }
             }
@@ -542,7 +549,9 @@ public final class PipelineGraphValidator {
                 continue;
             }
             int dot = to.indexOf('.');
-            if ("in".equals(to.substring(dot + 1)) && "hasher.md5".equals(types.get(to.substring(0, dot)))) {
+            String type = types.get(to.substring(0, dot));
+            if ("in".equals(to.substring(dot + 1))
+                    && ("hasher.md5".equals(type) || "hasher.sm3".equals(type))) {
                 return true;
             }
         }
