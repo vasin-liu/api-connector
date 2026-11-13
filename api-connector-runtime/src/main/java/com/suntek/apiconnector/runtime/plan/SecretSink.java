@@ -17,5 +17,6 @@ public enum SecretSink {
     HEADER,
     QUERY,
     BODY,
-    HASH
+    HASH,
+    ENCRYPT
 }

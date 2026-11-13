@@ -1,0 +1,128 @@
+# Protocol table: docs/design/v2.7-protocols/cetc.md
+# Plaintext concat + cipher.sm4-ecb base64, then {"data":...} envelope. No cipher.cetc-sm4.
+schema:
+  version: 1
+
+definition:
+  id: cetc
+  revision: 1
+  authProfile: cetc-sm4-body-v1
+
+credentials:
+  appSecret:
+    type: secret
+    valueRef: secret/cetc/app-secret
+    apiId: cetc
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://cetc.example"
+  uriPath:
+    type: string
+    scope: GLOBAL
+    value: "/detect/third/traffic/event/collect"
+  contentType:
+    type: string
+    scope: GLOBAL
+    value: "application/json;charset=UTF-8"
+  plainLiteral:
+    type: string
+    scope: GLOBAL
+    value: '{"alarmNo":"a1","alarmTime":"2026-01-01 00:00:00","deviceCode":"dev-1","factory":"test","picPath":"https://cetc.example/p","type":"98","videoPath":"https://cetc.example/v"}'
+  dataPrefix:
+    type: string
+    scope: GLOBAL
+    value: '{"data":"'
+  dataSuffix:
+    type: string
+    scope: GLOBAL
+    value: '"}'
+  ciphertext:
+    type: string
+    scope: FLOW
+
+limits:
+  maxAuthAttempts: 1
+  maxAuthDepth: 1
+  transitionLimit: 8
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+
+requests:
+  collect:
+    method: POST
+    url: "{global.baseUrl}{global.uriPath}"
+    headers:
+      Content-Type: "{global.contentType}"
+    body:
+      pipeline: wireBody
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  encryptBody:
+    nodes:
+      - id: material
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.plainLiteral }
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: cipher
+        type: cipher.sm4-ecb
+        config:
+          encoding: base64
+        ports:
+          in: { name: in, type: bytes, required: true }
+          key: { name: key, type: secret, required: true }
+          out: { name: ciphertext, type: string }
+    edges:
+      - from: material.out
+        to: cipher.in
+      - from:
+          secretRef: appSecret
+        to: cipher.key
+        sink: ENCRYPT
+
+  wireBody:
+    nodes:
+      - id: envelope
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: global.dataPrefix }
+            - { var: flow.ciphertext }
+            - { var: global.dataSuffix }
+        ports:
+          out: { name: canonical, type: bytes }
+    edges: []
+
+flows:
+  business:
+    steps:
+      - id: encrypt
+        pipeline: encryptBody
+        output:
+          flow.ciphertext: cipher.out
+      - id: collect
+        request: collect
+        pipeline: identity
+        transitions:
+          - when:
+              status: 200
+            action: SUCCESS

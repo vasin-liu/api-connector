@@ -51,6 +51,10 @@ final class ProtocolDefinitions {
         return read("shuyun.yaml");
     }
 
+    static String cetc() {
+        return read("cetc.yaml");
+    }
+
     static String trafficDahua() {
         return read("traffic-dahua.yaml");
     }

@@ -5,6 +5,7 @@
  */
 package com.suntek.apiconnector.runtime.pipeline;
 
+import com.suntek.apiconnector.core.api.ExecuteException;
 import com.suntek.apiconnector.core.flow.VariableScope;
 import com.suntek.apiconnector.core.value.DataValue;
 import com.suntek.apiconnector.core.value.SecretValue;
@@ -27,7 +28,7 @@ import java.util.Optional;
 
 /**
  * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, hmac-sha256,
- * hasher.md5, hasher.sm3).
+ * hasher.md5, hasher.sm3, cipher.sm4-ecb).
  *
  * @author Gensokyo
  * @since 2026-09-15
@@ -142,6 +143,50 @@ public final class PipelineExecutor {
                         ports.put(id + ".base64", value);
                     }
                 }
+                case "cipher.sm4-ecb" -> {
+                    byte[] data = findInboundBytes(ports, pipeline, id + ".in");
+                    SecretValue keySecret = null;
+                    for (Object edgeRaw : pipeline.edges()) {
+                        Map<String, Object> edge = YamlMaps.map(edgeRaw);
+                        String to = YamlMaps.stringOrNull(edge.get("to"));
+                        if (to == null || !to.equals(id + ".key") || !(edge.get("from") instanceof Map<?, ?>)) {
+                            continue;
+                        }
+                        String secretRef = YamlMaps.stringOrNull(YamlMaps.map(edge.get("from")).get("secretRef"));
+                        if (secretRef == null) {
+                            continue;
+                        }
+                        Object sinkRaw = edge.get("sink");
+                        String sink = sinkRaw == null
+                                ? ""
+                                : String.valueOf(sinkRaw).toUpperCase(Locale.ROOT).replace('-', '_');
+                        if (!"ENCRYPT".equals(sink)) {
+                            throw new ExecuteException(
+                                    ExecuteException.SECRET_SINK_DENIED,
+                                    "cipher key admission requires sink ENCRYPT"
+                            );
+                        }
+                        keySecret = secrets.requireCredential(plan, secretRef, "value");
+                    }
+                    if (keySecret == null) {
+                        throw new ExecuteException(
+                                ExecuteException.SECRET_UNRESOLVABLE,
+                                "cipher.sm4-ecb key is required"
+                        );
+                    }
+                    sinks.check(keySecret, SecretSink.ENCRYPT, new SinkDestination(plan.definitionId()));
+                    byte[][] keyHolder = new byte[1][];
+                    keySecret.use(bytes -> keyHolder[0] = bytes);
+                    CipherEncoding encoding = cipherEncoding(rawNode);
+                    String encoded = Sm4EcbCipher.encode(
+                            keyHolder[0] == null ? new byte[0] : keyHolder[0],
+                            data == null ? new byte[0] : data,
+                            encoding
+                    );
+                    DataValue value = new DataValue.StringValue(encoded);
+                    ports.put(id + ".out", value);
+                    ports.put(id + ".base64", value);
+                }
                 default -> {
                 }
             }
@@ -179,6 +224,12 @@ public final class PipelineExecutor {
         Map<String, Object> config = YamlMaps.map(rawNode.get("config"));
         String raw = config.get("encoding") == null ? null : String.valueOf(config.get("encoding"));
         return DigestEncoding.parse(raw);
+    }
+
+    private static CipherEncoding cipherEncoding(Map<String, Object> rawNode) {
+        Map<String, Object> config = YamlMaps.map(rawNode.get("config"));
+        String raw = config.get("encoding") == null ? null : String.valueOf(config.get("encoding"));
+        return CipherEncoding.parse(raw);
     }
 
     private static byte[] concat(

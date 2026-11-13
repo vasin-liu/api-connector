@@ -7,6 +7,7 @@ package com.suntek.apiconnector.runtime.validate;
 
 import com.suntek.apiconnector.core.validate.ValidationCodes;
 import com.suntek.apiconnector.core.validate.Violation;
+import com.suntek.apiconnector.runtime.pipeline.CipherEncoding;
 import com.suntek.apiconnector.runtime.pipeline.DigestEncoding;
 import com.suntek.apiconnector.runtime.pipeline.SortedQueryCanonicalizer;
 import com.suntek.apiconnector.runtime.yaml.YamlMaps;
@@ -35,7 +36,8 @@ public final class PipelineGraphValidator {
             "canonicalizer.sorted-query",
             "signer.hmac-sha256",
             "hasher.md5",
-            "hasher.sm3"
+            "hasher.sm3",
+            "cipher.sm4-ecb"
     );
 
     private PipelineGraphValidator() {
@@ -58,6 +60,7 @@ public final class PipelineGraphValidator {
             markConfigBindings(nodes);
             checkCardinalityAndTypes(nodes, edges, path, violations);
             checkHashAdmission(nodes, edges, path, violations);
+            checkEncryptAdmission(nodes, YamlMaps.list(pipe.get("edges")), path, violations);
             checkRequired(nodes, path, violations);
             checkCycle(nodes, edges, path, violations);
         });
@@ -131,6 +134,11 @@ public final class PipelineGraphValidator {
             case "hasher.md5", "hasher.sm3" -> {
                 ports.put("in", new Port("in", "in", "bytes", true));
                 ports.put("out", new Port("out", "hex", "string", false));
+            }
+            case "cipher.sm4-ecb" -> {
+                ports.put("in", new Port("in", "in", "bytes", true));
+                ports.put("key", new Port("key", "key", "secret", true));
+                ports.put("out", new Port("out", "ciphertext", "string", false));
             }
             default -> {
             }
@@ -219,6 +227,73 @@ public final class PipelineGraphValidator {
                         ));
                     }
                 }
+            }
+            if ("cipher.sm4-ecb".equals(node.type)) {
+                Object rawEncoding = node.config.get("encoding");
+                if (rawEncoding != null) {
+                    try {
+                        CipherEncoding.parse(String.valueOf(rawEncoding));
+                    } catch (IllegalArgumentException e) {
+                        violations.add(new Violation(
+                                ValidationCodes.VAL_PIPE_TYPE,
+                                path + "/nodes/" + node.id + "/config/encoding",
+                                e.getMessage()
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * A {@code secretRef} edge into {@code cipher.sm4-ecb.key} MUST declare sink {@code ENCRYPT}.
+     */
+    private static void checkEncryptAdmission(
+            Map<String, Node> nodes,
+            List<Object> rawEdges,
+            String path,
+            List<Violation> violations
+    ) {
+        for (int i = 0; i < rawEdges.size(); i++) {
+            Map<String, Object> edge = YamlMaps.map(rawEdges.get(i));
+            String to = YamlMaps.stringOrNull(edge.get("to"));
+            if (to == null || !to.endsWith(".key")) {
+                continue;
+            }
+            Endpoint target = endpoint(to);
+            if (target == null) {
+                continue;
+            }
+            Node node = nodes.get(target.nodeId);
+            if (node == null || !"cipher.sm4-ecb".equals(node.type) || !"key".equals(target.portKey)) {
+                continue;
+            }
+            if (!(edge.get("from") instanceof Map<?, ?>)) {
+                violations.add(new Violation(
+                        ValidationCodes.VAL_PIPE_TYPE,
+                        path + "/edges/" + i,
+                        "cipher.sm4-ecb.key requires a secretRef edge"
+                ));
+                continue;
+            }
+            Map<String, Object> from = YamlMaps.map(edge.get("from"));
+            if (!from.containsKey("secretRef")) {
+                violations.add(new Violation(
+                        ValidationCodes.VAL_PIPE_TYPE,
+                        path + "/edges/" + i,
+                        "cipher.sm4-ecb.key requires a secretRef edge"
+                ));
+                continue;
+            }
+            Object sinkRaw = edge.get("sink");
+            String sink = sinkRaw == null ? "" : String.valueOf(sinkRaw).toUpperCase(Locale.ROOT).replace('-', '_');
+            if (!"ENCRYPT".equals(sink)) {
+                violations.add(new Violation(
+                        ValidationCodes.VAL_PIPE_TYPE,
+                        path + "/edges/" + i,
+                        "cipher key admission requires sink ENCRYPT on secretRef (got "
+                                + (sinkRaw == null ? "omitted" : sinkRaw) + ")"
+                ));
             }
         }
     }
