@@ -33,6 +33,7 @@ import com.suntek.apiconnector.runtime.plan.UrlTemplate;
 import com.suntek.apiconnector.runtime.yaml.YamlMaps;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -109,7 +110,8 @@ public final class PlanAssembler {
                     initial
             ));
         });
-        return Map.copyOf(out);
+        // Preserve YAML declaration order. Map.copyOf uses a hash map and reorders keys.
+        return Collections.unmodifiableMap(out);
     }
 
     private static DataValue scalar(Object raw) {

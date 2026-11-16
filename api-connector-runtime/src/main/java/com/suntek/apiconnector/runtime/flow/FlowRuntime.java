@@ -55,6 +55,7 @@ import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -628,7 +629,8 @@ public final class FlowRuntime {
                 frame.variables.get(VariableScope.EXECUTION, name).ifPresent(value -> fields.put(name, value));
             }
         });
-        DataValue object = new DataValue.ObjectValue(Map.copyOf(fields));
+        // Preserve declaration order for codec.json bodies. Map.copyOf reorders keys.
+        DataValue object = new DataValue.ObjectValue(Collections.unmodifiableMap(fields));
         return Optional.of(PipelineExecutor.encodeJsonBody(
                 pipeline, frame.plan, frame.variables, object, frame.secrets, frame.sinks));
     }

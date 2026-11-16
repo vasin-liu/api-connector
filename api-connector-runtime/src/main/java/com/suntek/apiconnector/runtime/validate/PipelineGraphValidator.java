@@ -37,7 +37,8 @@ public final class PipelineGraphValidator {
             "signer.hmac-sha256",
             "hasher.md5",
             "hasher.sm3",
-            "cipher.sm4-ecb"
+            "cipher.sm4-ecb",
+            "cipher.rsa-pkcs1"
     );
 
     private PipelineGraphValidator() {
@@ -140,6 +141,11 @@ public final class PipelineGraphValidator {
                 ports.put("key", new Port("key", "key", "secret", true));
                 ports.put("out", new Port("out", "ciphertext", "string", false));
             }
+            case "cipher.rsa-pkcs1" -> {
+                ports.put("in", new Port("in", "in", "bytes", true));
+                ports.put("key", new Port("key", "key", "bytes", true));
+                ports.put("out", new Port("out", "ciphertext", "string", false));
+            }
             default -> {
             }
         }
@@ -228,7 +234,7 @@ public final class PipelineGraphValidator {
                     }
                 }
             }
-            if ("cipher.sm4-ecb".equals(node.type)) {
+            if ("cipher.sm4-ecb".equals(node.type) || "cipher.rsa-pkcs1".equals(node.type)) {
                 Object rawEncoding = node.config.get("encoding");
                 if (rawEncoding != null) {
                     try {

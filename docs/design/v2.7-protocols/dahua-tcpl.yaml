@@ -1,0 +1,278 @@
+# Protocol table: docs/design/v2.7-protocols/dahua-tcpl.md
+# Nested MD5 + cipher.rsa-pkcs1. No Flow-side RSA/MD5.
+schema:
+  version: 1
+
+definition:
+  id: dahua-tcpl
+  revision: 1
+  authProfile: dahua-tcpl-rsa-v1
+
+credentials:
+  tcplUser:
+    type: secret
+    valueRef: secret/dahua-tcpl/username
+    apiId: dahua-tcpl
+  tcplPass:
+    type: secret
+    valueRef: secret/dahua-tcpl/password
+    apiId: dahua-tcpl
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://dahua-tcpl.example"
+  contentType:
+    type: string
+    scope: GLOBAL
+    value: "application/json;charset=UTF-8"
+  token:
+    type: secret
+    scope: SESSION
+  userName:
+    type: secret
+    scope: EXECUTION
+  password:
+    type: string
+    scope: EXECUTION
+  publicKey:
+    type: string
+    scope: EXECUTION
+  subjectSessionId:
+    type: string
+    scope: EXECUTION
+  s1:
+    type: string
+    scope: FLOW
+  s2:
+    type: string
+    scope: FLOW
+  passwordCipher:
+    type: string
+    scope: FLOW
+
+session:
+  ttl: 18h
+  failureCooldown: 5s
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 32
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+
+requests:
+  stub:
+    method: GET
+    url: "{global.baseUrl}/jg/tcpl/stub"
+    headers:
+      X-Subject-Token:
+        secretVar: session.token
+        sink: HEADER
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+  publicKey:
+    method: GET
+    url: "{global.baseUrl}/jg/AuthPlatform/accounts/publicKey"
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+  login:
+    method: POST
+    url: "{global.baseUrl}/jg/AuthPlatform/accounts/login"
+    headers:
+      Content-Type: "{global.contentType}"
+      X-Subject-SessionId: "{execution.subjectSessionId}"
+    body:
+      pipeline: jsonBody
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  jsonBody:
+    nodes:
+      - id: json
+        type: codec.json
+        ports:
+          in: { name: object, type: object, required: true }
+          out: { name: body, type: bytes }
+    edges: []
+
+  hashS1:
+    nodes:
+      - id: canonical
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - secretRef: tcplPass
+              sink: HASH
+        ports:
+          in_secret: { type: secret, required: true }
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: canonical.out
+        to: hasher.in
+
+  hashS2:
+    nodes:
+      - id: canonical
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - secretRef: tcplUser
+              sink: HASH
+            - var: flow.s1
+        ports:
+          in_secret: { type: secret, required: true }
+          in_digest: { type: string, required: true }
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.md5
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: canonical.out
+        to: hasher.in
+
+  encryptPassword:
+    nodes:
+      - id: material
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: flow.s2 }
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: keyMaterial
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: execution.publicKey }
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: cipher
+        type: cipher.rsa-pkcs1
+        config:
+          encoding: base64
+        ports:
+          in: { name: in, type: bytes, required: true }
+          key: { name: key, type: bytes, required: true }
+          out: { name: ciphertext, type: string }
+    edges:
+      - from: material.out
+        to: cipher.in
+      - from: keyMaterial.out
+        to: cipher.key
+
+flows:
+  business:
+    steps:
+      - id: stub
+        request: stub
+        pipeline: identity
+        transitions:
+          - when:
+              status: 401
+            action: AUTHENTICATE
+            then: REPLAY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: fetchPublicKey
+        request: publicKey
+        pipeline: identity
+        transitions:
+          - when:
+              all:
+                - status: 200
+                - jsonpath:
+                    path: $.publicKey
+            action: CONTINUE
+          - when:
+              status: 200
+            action: FAIL
+            session: AUTH_FAILED
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED
+      - id: extractPublicKey
+        extract:
+          from:
+            jsonpath: $.publicKey
+          to: execution.publicKey
+      - id: extractSubjectSessionId
+        extract:
+          from:
+            jsonpath: $.subjectSessionId
+          to: execution.subjectSessionId
+      - id: hashS1
+        pipeline: hashS1
+        output:
+          flow.s1: hasher.hex
+      - id: hashS2
+        pipeline: hashS2
+        output:
+          flow.s2: hasher.hex
+      - id: encryptPassword
+        pipeline: encryptPassword
+        output:
+          flow.passwordCipher: cipher.out
+          execution.password: cipher.out
+      - id: bindLoginBody
+        assign:
+          execution.userName: { credential: tcplUser.value }
+      - id: login
+        request: login
+        pipeline: jsonBody
+        transitions:
+          - when:
+              status: 200
+            action: CONTINUE
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED
+      - id: storeToken
+        extract:
+          from:
+            jsonpath: $.token
+            as: secret
+          to: session.token
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

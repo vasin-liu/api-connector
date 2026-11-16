@@ -59,6 +59,10 @@ final class ProtocolDefinitions {
         return read("traffic-dahua.yaml");
     }
 
+    static String dahuaTcpl() {
+        return read("dahua-tcpl.yaml");
+    }
+
     private static String read(String name) {
         Path[] candidates = {
                 Path.of("..", "docs", "design", "v2.7-protocols", name),

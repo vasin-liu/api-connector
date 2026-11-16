@@ -28,7 +28,7 @@ import java.util.Optional;
 
 /**
  * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, hmac-sha256,
- * hasher.md5, hasher.sm3, cipher.sm4-ecb).
+ * hasher.md5, hasher.sm3, cipher.sm4-ecb, cipher.rsa-pkcs1).
  *
  * @author Gensokyo
  * @since 2026-09-15
@@ -180,6 +180,25 @@ public final class PipelineExecutor {
                     CipherEncoding encoding = cipherEncoding(rawNode);
                     String encoded = Sm4EcbCipher.encode(
                             keyHolder[0] == null ? new byte[0] : keyHolder[0],
+                            data == null ? new byte[0] : data,
+                            encoding
+                    );
+                    DataValue value = new DataValue.StringValue(encoded);
+                    ports.put(id + ".out", value);
+                    ports.put(id + ".base64", value);
+                }
+                case "cipher.rsa-pkcs1" -> {
+                    byte[] data = findInboundBytes(ports, pipeline, id + ".in");
+                    byte[] keyBytes = findInboundBytes(ports, pipeline, id + ".key");
+                    if (keyBytes == null || keyBytes.length == 0) {
+                        throw new ExecuteException(
+                                ExecuteException.SECRET_UNRESOLVABLE,
+                                "cipher.rsa-pkcs1 key is required"
+                        );
+                    }
+                    CipherEncoding encoding = cipherEncoding(rawNode);
+                    String encoded = RsaPkcs1Cipher.encode(
+                            keyBytes,
                             data == null ? new byte[0] : data,
                             encoding
                     );

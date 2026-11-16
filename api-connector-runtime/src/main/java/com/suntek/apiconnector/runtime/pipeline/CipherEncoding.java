@@ -9,7 +9,7 @@ import java.util.Base64;
 import java.util.Locale;
 
 /**
- * Ciphertext string encoding for {@code cipher.sm4-ecb}.
+ * Ciphertext string encoding for {@code cipher.sm4-ecb} and {@code cipher.rsa-pkcs1}.
  *
  * @author Gensokyo
  * @since 2026-11-13
