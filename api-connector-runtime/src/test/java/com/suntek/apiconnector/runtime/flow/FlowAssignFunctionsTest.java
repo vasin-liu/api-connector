@@ -37,7 +37,7 @@ class FlowAssignFunctionsTest {
                 new ScriptedClock(1000L, 2000L),
                 new ScriptedNonce("1", "2")
         );
-        client.loadPublished(yaml());
+        client.loadPublished(yaml("epochMillis"));
 
         ExecutionResult result = await(client.execute(command()));
         assertThat(result.outcome()).isEqualTo(StepOutcomeType.SUCCESS);
@@ -48,6 +48,30 @@ class FlowAssignFunctionsTest {
         assertThat(query).contains("n1=1");
         assertThat(query).contains("n2=2");
         assertThat(queryValue(request, "n1")).isNotEqualTo(queryValue(request, "n2"));
+    }
+
+    @Test
+    void epochSecondsTruncatesTowardZero() throws Exception {
+        FakeTransport transport = new FakeTransport().enqueue(ok(), ok());
+        Phase0ApiClient truncated = new Phase0ApiClient(
+                transport,
+                new ScriptedClock(1999L),
+                new ScriptedNonce("a")
+        );
+        truncated.loadPublished(yaml("epochSeconds"));
+        ExecutionResult first = await(truncated.execute(command()));
+        assertThat(first.outcome()).isEqualTo(StepOutcomeType.SUCCESS);
+        assertThat(queryValue(transport.invocations().get(0), "epoch")).isEqualTo("1");
+
+        Phase0ApiClient metro = new Phase0ApiClient(
+                transport,
+                new ScriptedClock(1_700_000_000_000L),
+                new ScriptedNonce("b")
+        );
+        metro.loadPublished(yaml("epochSeconds"));
+        ExecutionResult second = await(metro.execute(command()));
+        assertThat(second.outcome()).isEqualTo(StepOutcomeType.SUCCESS);
+        assertThat(queryValue(transport.invocations().get(1), "epoch")).isEqualTo("1700000000");
     }
 
     private static String queryValue(RawHttpRequest request, String name) {
@@ -87,7 +111,7 @@ class FlowAssignFunctionsTest {
         );
     }
 
-    private static String yaml() {
+    private static String yaml(String epochForm) {
         return """
                 schema:
                   version: 1
@@ -143,7 +167,7 @@ class FlowAssignFunctionsTest {
                       - id: stamp
                         assign:
                           execution.iso: { now: isoOffset }
-                          execution.epoch: { now: epochMillis }
+                          execution.epoch: { now: %s }
                           execution.n1: { generate: nonce }
                           execution.n2: { generate: nonce }
                       - id: ping
@@ -153,6 +177,6 @@ class FlowAssignFunctionsTest {
                           - when:
                               status: 200
                             action: SUCCESS
-                """;
+                """.formatted(epochForm);
     }
 }

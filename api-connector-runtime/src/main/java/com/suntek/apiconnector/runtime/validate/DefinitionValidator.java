@@ -102,11 +102,11 @@ public final class DefinitionValidator {
                 Map<String, Object> expr = YamlMaps.map(raw);
                 if (expr.containsKey("now")) {
                     String now = String.valueOf(expr.get("now"));
-                    if (!"epochMillis".equals(now) && !"isoOffset".equals(now)) {
+                    if (!"epochMillis".equals(now) && !"epochSeconds".equals(now) && !"isoOffset".equals(now)) {
                         violations.add(new Violation(
                                 ValidationCodes.VAL_ASSIGN_FORM,
                                 stepPath + "/assign/" + target + "/now",
-                                "now must be epochMillis or isoOffset"
+                                "now must be epochMillis, epochSeconds, or isoOffset"
                         ));
                     }
                 }

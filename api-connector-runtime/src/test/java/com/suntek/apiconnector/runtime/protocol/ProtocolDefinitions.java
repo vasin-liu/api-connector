@@ -67,6 +67,10 @@ final class ProtocolDefinitions {
         return read("qyh-gps.yaml");
     }
 
+    static String qyhMetro() {
+        return read("qyh-metro.yaml");
+    }
+
     private static String read(String name) {
         Path[] candidates = {
                 Path.of("..", "docs", "design", "v2.7-protocols", name),

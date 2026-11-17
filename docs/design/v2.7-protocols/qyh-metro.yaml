@@ -1,0 +1,155 @@
+# Protocol table: docs/design/v2.7-protocols/qyh-metro.md
+# Empty-separator concat + hasher.sha256 hex-upper. No vendor hasher node.
+schema:
+  version: 1
+
+definition:
+  id: qyh-metro
+  revision: 1
+  authProfile: qyh-metro-sha256-v1
+
+credentials:
+  metroToken:
+    type: secret
+    valueRef: secret/qyh-metro/token
+    apiId: qyh-metro
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://qyh-metro.example"
+  uriPath:
+    type: string
+    scope: GLOBAL
+    value: "/jtj/in-out"
+  passId:
+    type: string
+    scope: GLOBAL
+    value: "test-pass"
+  startTime:
+    type: string
+    scope: GLOBAL
+    value: "2026-01-01T00:00:00"
+  endTime:
+    type: string
+    scope: GLOBAL
+    value: "2026-01-01T00:10:00"
+  timestamp:
+    type: number
+    scope: EXECUTION
+  nonce:
+    type: string
+    scope: EXECUTION
+  signature:
+    type: string
+    scope: FLOW
+  signed:
+    type: boolean
+    scope: FLOW
+    value: false
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 16
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+  onStaleFlowBinding: RETRY_FLOW
+
+requests:
+  inOut:
+    method: GET
+    url: "{global.baseUrl}{global.uriPath}"
+    headers:
+      x-tif-paasid: "{global.passId}"
+      timestamp: "{execution.timestamp}"
+      nonce: "{execution.nonce}"
+      signature: "{flow.signature}"
+    query:
+      start_time: "{global.startTime}"
+      end_time: "{global.endTime}"
+    replay:
+      replayability: CONDITIONALLY_SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  signHeaders:
+    nodes:
+      - id: material
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - { var: execution.timestamp }
+            - secretRef: metroToken
+              sink: HASH
+            - { var: execution.nonce }
+            - { var: execution.timestamp }
+        ports:
+          out: { name: canonical, type: bytes }
+      - id: hasher
+        type: hasher.sha256
+        config:
+          encoding: hex-upper
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: material.out
+        to: hasher.in
+
+flows:
+  business:
+    steps:
+      - id: stamp
+        assign:
+          execution.timestamp: { now: epochSeconds }
+      - id: nonce
+        assign:
+          execution.nonce: { generate: nonce }
+      - id: sign
+        pipeline: signHeaders
+        output:
+          flow.signature: hasher.out
+      - id: markSigned
+        assign:
+          flow.signed: true
+      - id: inOut
+        request: inOut
+        pipeline: identity
+        transitions:
+          - when:
+              status: 503
+            action: RETRY_FLOW
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: newTimestamp
+        assign:
+          execution.timestamp: { now: epochSeconds }
+      - id: newNonce
+        assign:
+          execution.nonce: { generate: nonce }
+      - id: sign
+        pipeline: signHeaders
+        output:
+          flow.signature: hasher.out
+      - id: markSigned
+        assign:
+          flow.signed: true
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

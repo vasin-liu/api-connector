@@ -28,7 +28,8 @@ import java.util.Optional;
 
 /**
  * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, percent-encode,
- * hmac-sha256, hasher.md5, hasher.sm3, cipher.sm4-ecb, cipher.sm4-ecb-decrypt, cipher.rsa-pkcs1).
+ * hmac-sha256, hasher.md5, hasher.sm3, hasher.sha256, cipher.sm4-ecb, cipher.sm4-ecb-decrypt,
+ * cipher.rsa-pkcs1).
  *
  * @author Gensokyo
  * @since 2026-09-15
@@ -103,6 +104,18 @@ public final class PipelineExecutor {
                     byte[] data = findInboundBytes(ports, pipeline, id + ".in");
                     DigestEncoding encoding = digestEncoding(rawNode);
                     String encoded = Sm3Hasher.encode(data == null ? new byte[0] : data, encoding);
+                    DataValue value = new DataValue.StringValue(encoded);
+                    ports.put(id + ".out", value);
+                    if (encoding == DigestEncoding.HEX) {
+                        ports.put(id + ".hex", value);
+                    } else if (encoding == DigestEncoding.BASE64) {
+                        ports.put(id + ".base64", value);
+                    }
+                }
+                case "hasher.sha256" -> {
+                    byte[] data = findInboundBytes(ports, pipeline, id + ".in");
+                    DigestEncoding encoding = digestEncoding(rawNode);
+                    String encoded = Sha256Hasher.encode(data == null ? new byte[0] : data, encoding);
                     DataValue value = new DataValue.StringValue(encoded);
                     ports.put(id + ".out", value);
                     if (encoding == DigestEncoding.HEX) {

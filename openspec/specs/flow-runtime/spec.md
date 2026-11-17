@@ -85,7 +85,7 @@ Variables SHALL have scopes GLOBAL, SESSION, EXECUTION, FLOW, and LOCAL. GLOBAL 
 - **THEN** the execution ends with CANCELLED and no additional outbound request is sent
 
 ### Requirement: Assign can stamp ISO-offset time and generate a nonce
-Flow assign SHALL support `{ now: epochMillis }`, `{ now: isoOffset }`, and `{ generate: nonce }`. `isoOffset` MUST format the injected clock instant in that clock's zone as `yyyy-MM-dd'T'HH:mm:ssXXX`. `generate: nonce` MUST take the next value from an injectable nonce source so successive assigns (including after `RETRY_FLOW`) yield distinct values. Flow MUST NOT compute HMAC, sort query maps, or percent-encode query keys. An unknown `now` or `generate` form MUST fail validation.
+Flow assign SHALL support `{ now: epochMillis }`, `{ now: epochSeconds }`, `{ now: isoOffset }`, and `{ generate: nonce }`. `epochSeconds` MUST be the injected clock's millisecond instant divided by 1000, truncated toward zero, and assigned as an integer whose decimal text has no fraction. `isoOffset` MUST format the injected clock instant in that clock's zone as `yyyy-MM-dd'T'HH:mm:ssXXX`. `generate: nonce` MUST take the next value from an injectable nonce source so successive assigns (including after `RETRY_FLOW`) yield distinct values. Flow MUST NOT compute HMAC, sort query maps, or percent-encode query keys. An unknown `now` or `generate` form MUST fail validation.
 
 #### Scenario: isoOffset uses clock instant and zone
 - **WHEN** a step assigns `{ now: isoOffset }` with a clock instant of 1000 ms in UTC
@@ -95,8 +95,12 @@ Flow assign SHALL support `{ now: epochMillis }`, `{ now: isoOffset }`, and `{ g
 - **WHEN** a definition assigns `{ generate: nonce }` on the first send and again after `RETRY_FLOW`
 - **THEN** the second nonce differs from the first and both values appear on the corresponding outbound requests
 
+#### Scenario: epochSeconds truncates toward zero
+- **WHEN** a step assigns `{ now: epochSeconds }` with a clock instant of 1999 ms
+- **THEN** the assigned value's decimal text is `1`
+
 #### Scenario: Unknown now form fails validate
-- **WHEN** a definition assigns `{ now: epochSeconds }` or any `now` form other than `epochMillis` or `isoOffset`
+- **WHEN** a definition assigns `{ now: unix }` or any `now` form other than `epochMillis`, `epochSeconds`, or `isoOffset`
 - **THEN** validation fails and the definition is not compiled
 
 ### Requirement: CONTINUE on HTTP 401 is not CHALLENGE

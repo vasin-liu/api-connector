@@ -84,7 +84,7 @@ class DefinitionValidatorTest {
         assertCode(definition("""
                 - id: stamp
                   assign:
-                    execution.ts: { now: epochSeconds }
+                    execution.ts: { now: unix }
                 - id: call
                   request: ping
                   transitions:

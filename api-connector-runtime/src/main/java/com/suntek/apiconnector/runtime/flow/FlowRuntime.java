@@ -831,11 +831,14 @@ public final class FlowRuntime {
                 if ("epochMillis".equals(now)) {
                     return new DataValue.NumberValue(frame.clock.millis());
                 }
+                if ("epochSeconds".equals(now)) {
+                    return new DataValue.NumberValue(frame.clock.millis() / 1000L);
+                }
                 if ("isoOffset".equals(now)) {
                     return new DataValue.StringValue(
                             ZonedDateTime.ofInstant(frame.clock.instant(), frame.clock.getZone()).format(ISO_OFFSET));
                 }
-                throw new IllegalArgumentException("now must be epochMillis or isoOffset");
+                throw new IllegalArgumentException("now must be epochMillis, epochSeconds, or isoOffset");
             }
             if (map.containsKey("generate")) {
                 if (!"nonce".equals(String.valueOf(map.get("generate")))) {
