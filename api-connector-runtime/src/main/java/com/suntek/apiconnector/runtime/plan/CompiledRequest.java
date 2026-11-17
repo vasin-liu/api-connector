@@ -7,6 +7,7 @@ package com.suntek.apiconnector.runtime.plan;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -21,6 +22,7 @@ import java.util.Optional;
  * @param replay        replay policy
  * @param declaredSinks secret sinks
  * @param cookies       fromStore, acceptSetCookie, or empty
+ * @param beforeSend    optional pre-send pipeline (pipeline, whenVar, output)
  * @author Gensokyo
  * @since 2026-09-14
  */
@@ -33,6 +35,7 @@ public record CompiledRequest(
         Optional<Object> body,
         ReplayPolicy replay,
         EnumSet<SecretSink> declaredSinks,
-        Optional<String> cookies
+        Optional<String> cookies,
+        Optional<Map<String, Object>> beforeSend
 ) {
 }

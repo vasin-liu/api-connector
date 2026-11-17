@@ -109,8 +109,14 @@ public final class SortedQueryCanonicalizer {
         };
     }
 
-    private static String uriEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8)
+    /**
+     * Percent-encodes a whole string, keeping RFC 3986 unreserved octets.
+     *
+     * @param value raw UTF-8 text
+     * @return encoded text
+     */
+    public static String uriEncode(String value) {
+        return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8)
                 .replace("+", "%20")
                 .replace("*", "%2A")
                 .replace("%7E", "~");

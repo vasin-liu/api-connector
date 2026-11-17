@@ -198,6 +198,9 @@ public final class PlanAssembler {
         headers.forEach(b -> b.sink().ifPresent(sinks::add));
         query.forEach(b -> b.sink().ifPresent(sinks::add));
         Map<String, Object> replay = YamlMaps.map(request.get("replay"));
+        Optional<Map<String, Object>> beforeSend = request.get("beforeSend") instanceof Map<?, ?>
+                ? Optional.of(YamlMaps.map(request.get("beforeSend")))
+                : Optional.empty();
         return new CompiledRequest(
                 String.valueOf(request.get("id")),
                 String.valueOf(request.get("method")),
@@ -211,7 +214,8 @@ public final class PlanAssembler {
                         YamlMaps.integer(replay.get("maxAttempts"), 1)
                 ),
                 sinks,
-                Optional.ofNullable(YamlMaps.stringOrNull(request.get("cookies")))
+                Optional.ofNullable(YamlMaps.stringOrNull(request.get("cookies"))),
+                beforeSend
         );
     }
 
@@ -307,10 +311,10 @@ public final class PlanAssembler {
                     "increment".equals(String.valueOf(onCommit.get("generation")))
             ));
         }
-        Optional<Map<String, String>> pipelineOutput = Optional.empty();
+        Optional<Map<String, Object>> pipelineOutput = Optional.empty();
         if (step.get("output") instanceof Map<?, ?>) {
-            Map<String, String> mapped = new LinkedHashMap<>();
-            YamlMaps.map(step.get("output")).forEach((key, value) -> mapped.put(key, String.valueOf(value)));
+            Map<String, Object> mapped = new LinkedHashMap<>();
+            YamlMaps.map(step.get("output")).forEach(mapped::put);
             pipelineOutput = Optional.of(Map.copyOf(mapped));
         }
         Optional<Map<String, Object>> stepInput = step.get("input") instanceof Map<?, ?>

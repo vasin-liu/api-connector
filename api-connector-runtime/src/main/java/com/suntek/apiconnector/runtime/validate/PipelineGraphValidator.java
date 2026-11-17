@@ -38,7 +38,9 @@ public final class PipelineGraphValidator {
             "hasher.md5",
             "hasher.sm3",
             "cipher.sm4-ecb",
-            "cipher.rsa-pkcs1"
+            "cipher.sm4-ecb-decrypt",
+            "cipher.rsa-pkcs1",
+            "canonicalizer.percent-encode"
     );
 
     private PipelineGraphValidator() {
@@ -132,6 +134,10 @@ public final class PipelineGraphValidator {
                 ports.put("in", new Port("in", "query", "object", true));
                 ports.put("out", new Port("out", "canonical", "bytes", false));
             }
+            case "canonicalizer.percent-encode" -> {
+                ports.put("in", new Port("in", "in", "bytes", true));
+                ports.put("out", new Port("out", "out", "bytes", false));
+            }
             case "hasher.md5", "hasher.sm3" -> {
                 ports.put("in", new Port("in", "in", "bytes", true));
                 ports.put("out", new Port("out", "hex", "string", false));
@@ -140,6 +146,11 @@ public final class PipelineGraphValidator {
                 ports.put("in", new Port("in", "in", "bytes", true));
                 ports.put("key", new Port("key", "key", "secret", true));
                 ports.put("out", new Port("out", "ciphertext", "string", false));
+            }
+            case "cipher.sm4-ecb-decrypt" -> {
+                ports.put("in", new Port("in", "in", "bytes", true));
+                ports.put("key", new Port("key", "key", "secret", true));
+                ports.put("out", new Port("out", "plaintext", "string", false));
             }
             case "cipher.rsa-pkcs1" -> {
                 ports.put("in", new Port("in", "in", "bytes", true));
@@ -248,6 +259,13 @@ public final class PipelineGraphValidator {
                     }
                 }
             }
+            if ("cipher.sm4-ecb-decrypt".equals(node.type) && node.config.containsKey("encoding")) {
+                violations.add(new Violation(
+                        ValidationCodes.VAL_PIPE_TYPE,
+                        path + "/nodes/" + node.id + "/config/encoding",
+                        "cipher.sm4-ecb-decrypt does not accept encoding"
+                ));
+            }
         }
     }
 
@@ -271,14 +289,16 @@ public final class PipelineGraphValidator {
                 continue;
             }
             Node node = nodes.get(target.nodeId);
-            if (node == null || !"cipher.sm4-ecb".equals(node.type) || !"key".equals(target.portKey)) {
+            if (node == null
+                    || (!"cipher.sm4-ecb".equals(node.type) && !"cipher.sm4-ecb-decrypt".equals(node.type))
+                    || !"key".equals(target.portKey)) {
                 continue;
             }
             if (!(edge.get("from") instanceof Map<?, ?>)) {
                 violations.add(new Violation(
                         ValidationCodes.VAL_PIPE_TYPE,
                         path + "/edges/" + i,
-                        "cipher.sm4-ecb.key requires a secretRef edge"
+                        node.type + ".key requires a secretRef edge"
                 ));
                 continue;
             }
@@ -287,7 +307,7 @@ public final class PipelineGraphValidator {
                 violations.add(new Violation(
                         ValidationCodes.VAL_PIPE_TYPE,
                         path + "/edges/" + i,
-                        "cipher.sm4-ecb.key requires a secretRef edge"
+                        node.type + ".key requires a secretRef edge"
                 ));
                 continue;
             }

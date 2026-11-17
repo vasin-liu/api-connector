@@ -1,0 +1,319 @@
+# Protocol table: docs/design/v2.7-protocols/qyh-gps.md
+# Login SM3 + cipher.sm4-ecb-decrypt + percent-encode. Vendor-specific decrypt nodes are out of catalog.
+schema:
+  version: 1
+
+definition:
+  id: qyh-gps
+  revision: 1
+  authProfile: qyh-gps-sm4-v1
+
+credentials:
+  username:
+    type: secret
+    valueRef: secret/qyh-gps/username
+    apiId: qyh-gps
+  agreedKey:
+    type: secret
+    valueRef: secret/qyh-gps/agreed-key
+    apiId: qyh-gps
+
+variables:
+  baseUrl:
+    type: string
+    scope: GLOBAL
+    value: "https://qyh-gps.example"
+  contentType:
+    type: string
+    scope: GLOBAL
+    value: "application/json;charset=UTF-8"
+  sysId:
+    type: string
+    scope: GLOBAL
+    value: "test-sys"
+  tokenAppId:
+    type: string
+    scope: GLOBAL
+    value: "test-token-app"
+  tokenApiKey:
+    type: string
+    scope: GLOBAL
+    value: "test-token-key"
+  gpsAppId:
+    type: string
+    scope: GLOBAL
+    value: "test-gps-app"
+  gpsApiKey:
+    type: string
+    scope: GLOBAL
+    value: "test-gps-key"
+  plateBody:
+    type: string
+    scope: GLOBAL
+    value: '{"plateNo":"A12345"}'
+  token:
+    type: secret
+    scope: SESSION
+  str:
+    type: string
+    scope: SESSION
+  businessT:
+    type: number
+    scope: EXECUTION
+  loginT:
+    type: number
+    scope: EXECUTION
+  userName:
+    type: secret
+    scope: EXECUTION
+  loginSign:
+    type: string
+    scope: FLOW
+  symKey:
+    type: secret
+    scope: FLOW
+  xSign:
+    type: string
+    scope: FLOW
+
+session:
+  ttl: 18h
+  failureCooldown: 5s
+
+limits:
+  maxAuthAttempts: 2
+  maxAuthDepth: 1
+  transitionLimit: 32
+  executionTimeout: 15s
+
+policy:
+  onUnknownOutcome: FAIL
+
+requests:
+  queryGps:
+    method: POST
+    url: "{global.baseUrl}/zhjt/sportservice/basic-api/gzqyh/open/api/queryGps?app_id={global.gpsAppId}&api_key={global.gpsApiKey}"
+    headers:
+      Content-Type: "{global.contentType}"
+      X-Access-Token:
+        secretVar: session.token
+        sink: HEADER
+      X-Username:
+        secretVar: execution.userName
+        sink: HEADER
+      X-System: "{global.sysId}"
+      X-Time: "{execution.businessT}"
+      X-Sign: "{flow.xSign}"
+    body:
+      pipeline: queryBody
+    beforeSend:
+      whenVar: session.str
+      steps:
+        - pipeline: decryptSym
+          output:
+            flow.symKey:
+              port: cipher.out
+              as: secret
+        - pipeline: querySign
+          output:
+            flow.xSign: hasher.out
+    replay:
+      replayability: SAFE
+      allowAutomaticReplay: true
+      maxAttempts: 2
+
+  getToken:
+    method: POST
+    url: "{global.baseUrl}/zhjt/sportservice/basic-api/gzqyh/open/api/getToken?app_id={global.tokenAppId}&api_key={global.tokenApiKey}"
+    headers:
+      Content-Type: "{global.contentType}"
+    body:
+      pipeline: loginBody
+    replay:
+      replayability: UNSAFE
+      allowAutomaticReplay: false
+      maxAttempts: 1
+
+pipelines:
+  identity:
+    nodes:
+      - id: passthrough
+        type: passthrough
+    edges: []
+
+  queryBody:
+    nodes:
+      - id: literal
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - var: global.plateBody
+        ports:
+          out: { name: out, type: bytes }
+    edges: []
+
+  loginSign:
+    nodes:
+      - id: material
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - secretRef: username
+              sink: HASH
+            - var: execution.loginT
+            - secretRef: agreedKey
+              sink: HASH
+        ports:
+          out: { name: out, type: bytes }
+      - id: hasher
+        type: hasher.sm3
+        config:
+          encoding: hex
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: material.out
+        to: hasher.in
+
+  loginBody:
+    nodes:
+      - id: envelope
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - value: '{"sign":"'
+            - var: flow.loginSign
+            - value: '","t":'
+            - var: execution.loginT
+            - value: ',"sysId":"test-sys"}'
+        ports:
+          out: { name: out, type: bytes }
+    edges: []
+
+  decryptSym:
+    nodes:
+      - id: cipherIn
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - var: session.str
+        ports:
+          out: { name: out, type: bytes }
+      - id: cipher
+        type: cipher.sm4-ecb-decrypt
+        ports:
+          in: { name: in, type: bytes, required: true }
+          key: { name: key, type: secret, required: true }
+          out: { name: plaintext, type: string }
+    edges:
+      - from: cipherIn.out
+        to: cipher.in
+      - from:
+          secretRef: agreedKey
+        to: cipher.key
+        sink: ENCRYPT
+
+  querySign:
+    nodes:
+      - id: preimage
+        type: canonicalizer.concat
+        config:
+          separator: ""
+          parts:
+            - value: '{"plateNo":"A12345"}&_t='
+            - var: execution.businessT
+            - value: '&symKey='
+            - var: flow.symKey
+              sink: HASH
+        ports:
+          out: { name: out, type: bytes }
+      - id: encoded
+        type: canonicalizer.percent-encode
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: out, type: bytes }
+      - id: hasher
+        type: hasher.sm3
+        config:
+          encoding: hex
+        ports:
+          in: { name: in, type: bytes, required: true }
+          out: { name: hex, type: string }
+    edges:
+      - from: preimage.out
+        to: encoded.in
+      - from: encoded.out
+        to: hasher.in
+
+flows:
+  business:
+    steps:
+      - id: bindUser
+        assign:
+          execution.userName: { credential: username }
+      - id: stampBusiness
+        assign:
+          execution.businessT: { now: epochMillis }
+      - id: query
+        request: queryGps
+        pipeline: identity
+        transitions:
+          - when:
+              status: 401
+            action: AUTHENTICATE
+            then: REPLAY_REQUEST
+          - when:
+              status: 200
+            action: SUCCESS
+
+  authentication:
+    steps:
+      - id: stampLogin
+        assign:
+          execution.loginT: { now: epochMillis }
+      - id: signLogin
+        pipeline: loginSign
+        output:
+          flow.loginSign: hasher.out
+      - id: token
+        request: getToken
+        pipeline: identity
+        transitions:
+          - when:
+              all:
+                - status: 200
+                - jsonpath:
+                    path: $.success
+                    equals: true
+                - jsonpath:
+                    path: $.result.str
+            action: CONTINUE
+          - when:
+              status: 200
+            action: FAIL
+            session: AUTH_FAILED
+          - when:
+              status:
+                from: 400
+                to: 499
+            action: FAIL
+            session: AUTH_FAILED
+      - id: storeToken
+        extract:
+          from:
+            jsonpath: $.result.token
+            as: secret
+          to: session.token
+      - id: storeStr
+        extract:
+          from:
+            jsonpath: $.result.str
+          to: session.str
+        onCommit:
+          sessionStatus: VALID
+          generation: increment

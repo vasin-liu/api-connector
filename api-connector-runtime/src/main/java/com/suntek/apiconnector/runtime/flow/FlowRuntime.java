@@ -20,6 +20,7 @@ import com.suntek.apiconnector.core.session.SessionLookupKey;
 import com.suntek.apiconnector.core.session.SessionSnapshot;
 import com.suntek.apiconnector.core.value.DataValue;
 import com.suntek.apiconnector.core.value.SecretMetadata;
+import com.suntek.apiconnector.core.value.SecretValue;
 import com.suntek.apiconnector.runtime.observe.TraceBuilder;
 import com.suntek.apiconnector.runtime.pipeline.PipelineExecutor;
 import com.suntek.apiconnector.runtime.plan.CompiledFlow;
@@ -188,6 +189,17 @@ public final class FlowRuntime {
                 new TraceBuilder(executionId),
                 nonce == null ? NonceSource.uuid() : nonce
         );
+        Optional<AuthOutcome> cooldown = sessions.activeCooldown(requested.lookupKey());
+        if (cooldown.isPresent()) {
+            Optional<SessionSnapshot> cooled = sessions.snapshot(requested.lookupKey());
+            return new ExecutionResult(
+                    cooldown.get().outcome(),
+                    Optional.empty(),
+                    new ResponseBody.EmptyBody(),
+                    frame.trace.snapshot(),
+                    cooled
+            );
+        }
         ExecutionResult result = runFlow(frame, plan.business(), 0, 0, null);
         Optional<SessionSnapshot> snapshot = sessions.snapshot(requested.lookupKey());
         return new ExecutionResult(result.outcome(), result.httpStatus(), result.body(), frame.trace.snapshot(), snapshot);
@@ -272,6 +284,7 @@ public final class FlowRuntime {
             long observedGeneration = frame.sessions.reRead(frame.requested.lookupKey())
                     .map(SessionCoordinator.BoundSession::generation)
                     .orElse(0L);
+            runBeforeSend(frame, request);
             Optional<byte[]> body = renderBody(frame, step, request);
             int requestAttempt = frame.trace.nextRequestAttempt();
             RawHttpRequest outbound = RequestRenderer.render(
@@ -580,6 +593,89 @@ public final class FlowRuntime {
         return action;
     }
 
+    private static void runBeforeSend(Frame frame, CompiledRequest request) {
+        Map<String, Object> before = request.beforeSend().orElse(null);
+        if (before == null || before.isEmpty()) {
+            return;
+        }
+        String whenVar = YamlMaps.stringOrNull(before.get("whenVar"));
+        if (whenVar != null && resolvePath(whenVar, frame.variables).isEmpty()) {
+            return;
+        }
+        List<Object> steps = YamlMaps.list(before.get("steps"));
+        if (steps.isEmpty() && before.get("pipeline") != null) {
+            steps = List.of(before);
+        }
+        for (Object stepRaw : steps) {
+            Map<String, Object> step = YamlMaps.map(stepRaw);
+            String pipelineId = YamlMaps.stringOrNull(step.get("pipeline"));
+            if (pipelineId == null) {
+                continue;
+            }
+            CompiledPipeline pipeline = frame.plan.pipelines().get(pipelineId);
+            if (pipeline == null) {
+                continue;
+            }
+            Map<String, DataValue> ports = PipelineExecutor.execute(
+                    pipeline, frame.plan, frame.variables, Optional.empty(), frame.secrets, frame.sinks);
+            VariableRuntime.StateMutation mutation = frame.variables.beginLocal();
+            YamlMaps.map(step.get("output")).forEach((target, binding) ->
+                    bindPipelineOutput(frame, mutation, ports, target, binding));
+            frame.variables.commit(mutation, StepOutcomeType.SUCCESS);
+            frame.trace.add("PIPELINE", "CONTINUE", "BEFORE_SEND", Map.of("pipeline", pipelineId));
+        }
+    }
+
+    private static void bindPipelineOutput(
+            Frame frame,
+            VariableRuntime.StateMutation mutation,
+            Map<String, DataValue> ports,
+            String target,
+            Object binding
+    ) {
+        int dot = target.indexOf('.');
+        if (dot <= 0) {
+            return;
+        }
+        VariableScope scope = VariableScope.valueOf(target.substring(0, dot).toUpperCase());
+        String name = target.substring(dot + 1);
+        String portRef;
+        boolean asSecret = false;
+        if (binding instanceof Map<?, ?>) {
+            Map<String, Object> map = YamlMaps.map(binding);
+            portRef = YamlMaps.stringOrNull(map.get("port"));
+            asSecret = "secret".equals(YamlMaps.stringOrNull(map.get("as")));
+        } else {
+            portRef = binding == null ? null : String.valueOf(binding);
+        }
+        if (portRef == null) {
+            return;
+        }
+        DataValue value = ports.get(portRef);
+        if (value == null) {
+            return;
+        }
+        if (asSecret) {
+            String text = stringifyPipelineValue(value);
+            mutation.set(
+                    scope,
+                    name,
+                    ByteSecret.utf8(new SecretMetadata(target, frame.plan.definitionId()), text)
+            );
+        } else {
+            mutation.set(scope, name, value);
+        }
+    }
+
+    private static Optional<DataValue> resolvePath(String path, VariableRuntime variables) {
+        int dot = path.indexOf('.');
+        if (dot <= 0) {
+            return Optional.empty();
+        }
+        VariableScope scope = VariableScope.valueOf(path.substring(0, dot).toUpperCase());
+        return variables.get(scope, path.substring(dot + 1));
+    }
+
     private static void runPipelineStep(
             Frame frame,
             CompiledStep step,
@@ -594,20 +690,25 @@ public final class FlowRuntime {
         Map<String, DataValue> ports = PipelineExecutor.execute(
                 pipeline, frame.plan, frame.variables, Optional.empty(), frame.secrets, frame.sinks);
         frame.trace.add("PIPELINE", "CONTINUE", "PIPELINE_OK", Map.of("pipeline", pipelineId));
-        step.pipelineOutput().ifPresent(mapping -> mapping.forEach((target, portRef) -> {
-            int dot = target.indexOf('.');
-            if (dot <= 0) {
-                return;
-            }
-            VariableScope scope = VariableScope.valueOf(target.substring(0, dot).toUpperCase());
-            String name = target.substring(dot + 1);
-            DataValue value = ports.get(portRef);
-            if (value != null) {
-                mutation.set(scope, name, value);
-            }
-        }));
+        step.pipelineOutput().ifPresent(mapping -> mapping.forEach((target, binding) ->
+                bindPipelineOutput(frame, mutation, ports, target, binding)));
         frame.variables.commit(mutation, StepOutcomeType.SUCCESS);
         applySessionCommit(frame, step);
+    }
+
+    private static String stringifyPipelineValue(DataValue value) {
+        return switch (value) {
+            case DataValue.StringValue(String v) -> v;
+            case DataValue.NumberValue(Number n) -> String.valueOf(n);
+            case DataValue.BooleanValue(boolean b) -> String.valueOf(b);
+            case DataValue.BytesValue(byte[] bytes) -> new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+            case SecretValue secret -> {
+                String[] holder = new String[1];
+                secret.use(bytes -> holder[0] = new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+                yield holder[0] == null ? "" : holder[0];
+            }
+            default -> "";
+        };
     }
 
     private static Optional<byte[]> renderBody(Frame frame, CompiledStep step, CompiledRequest request) {

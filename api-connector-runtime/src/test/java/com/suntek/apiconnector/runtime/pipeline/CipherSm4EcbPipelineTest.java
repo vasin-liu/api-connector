@@ -142,6 +142,24 @@ class CipherSm4EcbPipelineTest {
     }
 
     @Test
+    void thirtyTwoCharHexKeyFailsBeforeHttp() {
+        FakeTransport transport = new FakeTransport().enqueue(json(200, "{}"));
+        Phase0ApiClient client = new Phase0ApiClient(transport);
+        client.secrets().put("secret/sm4-demo/app-secret", "0123456789abcdeffedcba9876543210");
+        client.loadPublished(definition("ENCRYPT", "base64"));
+
+        assertThatThrownBy(() -> client.execute(new ExecuteCommand(
+                "sm4-demo",
+                "business",
+                Map.of(),
+                Optional.empty(),
+                new ExecuteOptions(Duration.ofSeconds(10), false, Map.of())
+        )).result().toCompletableFuture().get(10, TimeUnit.SECONDS))
+                .hasCauseInstanceOf(com.suntek.apiconnector.core.api.ExecuteException.class);
+        assertThat(transport.invocations()).isEmpty();
+    }
+
+    @Test
     void encryptSinkOnWireBodyIsDenied() {
         String yaml = """
                 schema:

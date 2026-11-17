@@ -24,7 +24,7 @@ import java.util.Optional;
  * @param transitions    first-match list
  * @param extraCommitOn  extra commit outcomes (e.g. CHALLENGE)
  * @param sessionCommit  onCommit session mutation
- * @param pipelineOutput pipeline port bindings (flow.var → node.port)
+ * @param pipelineOutput pipeline port bindings (flow.var → node.port or {port, as})
  * @param stepInput      optional request/pipeline input map
  * @author Gensokyo
  * @since 2026-09-14
@@ -39,7 +39,7 @@ public record CompiledStep(
         List<CompiledTransition> transitions,
         EnumSet<StepOutcomeType> extraCommitOn,
         Optional<SessionCommit> sessionCommit,
-        Optional<Map<String, String>> pipelineOutput,
+        Optional<Map<String, Object>> pipelineOutput,
         Optional<Map<String, Object>> stepInput
 ) {
 }

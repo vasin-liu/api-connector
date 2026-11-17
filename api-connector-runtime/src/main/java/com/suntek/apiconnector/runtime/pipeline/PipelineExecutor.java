@@ -27,8 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, hmac-sha256,
- * hasher.md5, hasher.sm3, cipher.sm4-ecb, cipher.rsa-pkcs1).
+ * Executes a compiled pipeline graph (passthrough, codec.json, concat, sorted-query, percent-encode,
+ * hmac-sha256, hasher.md5, hasher.sm3, cipher.sm4-ecb, cipher.sm4-ecb-decrypt, cipher.rsa-pkcs1).
  *
  * @author Gensokyo
  * @since 2026-09-15
@@ -79,6 +79,13 @@ public final class PipelineExecutor {
                     byte[] canonical = sortedQuery(YamlMaps.map(rawNode.get("config")), plan, variables, secrets, sinks);
                     ports.put(id + ".out", new DataValue.BytesValue(canonical));
                     ports.put(id + ".canonical", ports.get(id + ".out"));
+                }
+                case "canonicalizer.percent-encode" -> {
+                    byte[] data = findInboundBytes(ports, pipeline, id + ".in");
+                    byte[] encoded = PercentEncodeCanonicalizer.encode(data == null ? new byte[0] : data);
+                    DataValue value = new DataValue.BytesValue(encoded);
+                    ports.put(id + ".out", value);
+                    ports.put(id + ".canonical", value);
                 }
                 case "hasher.md5" -> {
                     byte[] data = findInboundBytes(ports, pipeline, id + ".in");
@@ -145,36 +152,7 @@ public final class PipelineExecutor {
                 }
                 case "cipher.sm4-ecb" -> {
                     byte[] data = findInboundBytes(ports, pipeline, id + ".in");
-                    SecretValue keySecret = null;
-                    for (Object edgeRaw : pipeline.edges()) {
-                        Map<String, Object> edge = YamlMaps.map(edgeRaw);
-                        String to = YamlMaps.stringOrNull(edge.get("to"));
-                        if (to == null || !to.equals(id + ".key") || !(edge.get("from") instanceof Map<?, ?>)) {
-                            continue;
-                        }
-                        String secretRef = YamlMaps.stringOrNull(YamlMaps.map(edge.get("from")).get("secretRef"));
-                        if (secretRef == null) {
-                            continue;
-                        }
-                        Object sinkRaw = edge.get("sink");
-                        String sink = sinkRaw == null
-                                ? ""
-                                : String.valueOf(sinkRaw).toUpperCase(Locale.ROOT).replace('-', '_');
-                        if (!"ENCRYPT".equals(sink)) {
-                            throw new ExecuteException(
-                                    ExecuteException.SECRET_SINK_DENIED,
-                                    "cipher key admission requires sink ENCRYPT"
-                            );
-                        }
-                        keySecret = secrets.requireCredential(plan, secretRef, "value");
-                    }
-                    if (keySecret == null) {
-                        throw new ExecuteException(
-                                ExecuteException.SECRET_UNRESOLVABLE,
-                                "cipher.sm4-ecb key is required"
-                        );
-                    }
-                    sinks.check(keySecret, SecretSink.ENCRYPT, new SinkDestination(plan.definitionId()));
+                    SecretValue keySecret = requireEncryptKey(pipeline, plan, secrets, sinks, id, "cipher.sm4-ecb");
                     byte[][] keyHolder = new byte[1][];
                     keySecret.use(bytes -> keyHolder[0] = bytes);
                     CipherEncoding encoding = cipherEncoding(rawNode);
@@ -186,6 +164,20 @@ public final class PipelineExecutor {
                     DataValue value = new DataValue.StringValue(encoded);
                     ports.put(id + ".out", value);
                     ports.put(id + ".base64", value);
+                }
+                case "cipher.sm4-ecb-decrypt" -> {
+                    byte[] data = findInboundBytes(ports, pipeline, id + ".in");
+                    SecretValue keySecret = requireEncryptKey(
+                            pipeline, plan, secrets, sinks, id, "cipher.sm4-ecb-decrypt");
+                    byte[][] keyHolder = new byte[1][];
+                    keySecret.use(bytes -> keyHolder[0] = bytes);
+                    String plaintext = Sm4EcbDecryptCipher.decrypt(
+                            keyHolder[0] == null ? new byte[0] : keyHolder[0],
+                            data == null ? new byte[0] : data
+                    );
+                    DataValue value = new DataValue.StringValue(plaintext);
+                    ports.put(id + ".out", value);
+                    ports.put(id + ".plaintext", value);
                 }
                 case "cipher.rsa-pkcs1" -> {
                     byte[] data = findInboundBytes(ports, pipeline, id + ".in");
@@ -274,7 +266,7 @@ public final class PipelineExecutor {
                 secret.use(bytes -> holder[0] = new String(bytes, StandardCharsets.UTF_8));
                 out.append(holder[0] == null ? "" : holder[0]);
             } else if (part.containsKey("var")) {
-                out.append(readVar(String.valueOf(part.get("var")), variables));
+                out.append(readVarPart(String.valueOf(part.get("var")), part, plan, variables, sinks));
             } else if (part.containsKey("value")) {
                 out.append(String.valueOf(part.get("value")));
             }
@@ -335,6 +327,77 @@ public final class PipelineExecutor {
             return defaultSink;
         }
         return SecretSink.valueOf(String.valueOf(raw).toUpperCase(Locale.ROOT).replace('-', '_'));
+    }
+
+    private static SecretValue requireEncryptKey(
+            CompiledPipeline pipeline,
+            ExecutionPlan plan,
+            CredentialResolver secrets,
+            SecretSinkPolicy sinks,
+            String nodeId,
+            String nodeType
+    ) {
+        SecretValue keySecret = null;
+        for (Object edgeRaw : pipeline.edges()) {
+            Map<String, Object> edge = YamlMaps.map(edgeRaw);
+            String to = YamlMaps.stringOrNull(edge.get("to"));
+            if (to == null || !to.equals(nodeId + ".key") || !(edge.get("from") instanceof Map<?, ?>)) {
+                continue;
+            }
+            String secretRef = YamlMaps.stringOrNull(YamlMaps.map(edge.get("from")).get("secretRef"));
+            if (secretRef == null) {
+                continue;
+            }
+            Object sinkRaw = edge.get("sink");
+            String sink = sinkRaw == null
+                    ? ""
+                    : String.valueOf(sinkRaw).toUpperCase(Locale.ROOT).replace('-', '_');
+            if (!"ENCRYPT".equals(sink)) {
+                throw new ExecuteException(
+                        ExecuteException.SECRET_SINK_DENIED,
+                        "cipher key admission requires sink ENCRYPT"
+                );
+            }
+            keySecret = secrets.requireCredential(plan, secretRef, "value");
+        }
+        if (keySecret == null) {
+            throw new ExecuteException(
+                    ExecuteException.SECRET_UNRESOLVABLE,
+                    nodeType + " key is required"
+            );
+        }
+        sinks.check(keySecret, SecretSink.ENCRYPT, new SinkDestination(plan.definitionId()));
+        return keySecret;
+    }
+
+    private static String readVarPart(
+            String path,
+            Map<String, Object> part,
+            ExecutionPlan plan,
+            VariableRuntime variables,
+            SecretSinkPolicy sinks
+    ) {
+        int dot = path.indexOf('.');
+        if (dot <= 0) {
+            return "";
+        }
+        VariableScope scope = VariableScope.valueOf(path.substring(0, dot).toUpperCase());
+        DataValue value = variables.get(scope, path.substring(dot + 1)).orElse(new DataValue.NullValue());
+        if (value instanceof SecretValue secret) {
+            Object sinkRaw = part.get("sink");
+            String sink = sinkRaw == null
+                    ? ""
+                    : String.valueOf(sinkRaw).toUpperCase(Locale.ROOT).replace('-', '_');
+            if (!"HASH".equals(sink)) {
+                throw new ExecuteException(
+                        ExecuteException.SECRET_SINK_DENIED,
+                        "secret variable admission requires sink HASH (got "
+                                + (sinkRaw == null ? "omitted" : sinkRaw) + ")"
+                );
+            }
+            sinks.check(secret, SecretSink.HASH, new SinkDestination(plan.definitionId()));
+        }
+        return stringify(value);
     }
 
     private static String readVar(String path, VariableRuntime variables) {

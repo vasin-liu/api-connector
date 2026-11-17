@@ -63,6 +63,10 @@ final class ProtocolDefinitions {
         return read("dahua-tcpl.yaml");
     }
 
+    static String qyhGps() {
+        return read("qyh-gps.yaml");
+    }
+
     private static String read(String name) {
         Path[] candidates = {
                 Path.of("..", "docs", "design", "v2.7-protocols", name),

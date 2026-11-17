@@ -158,6 +158,27 @@ public final class SessionCoordinator {
     }
 
     /**
+     * Peeks failure cooldown without claiming a refresh lease.
+     *
+     * @param lookup lookup key
+     * @return shared failure outcome while cooldown is active
+     */
+    public Optional<AuthOutcome> activeCooldown(SessionLookupKey lookup) {
+        Objects.requireNonNull(lookup, "lookup");
+        Slot slot = slots.get(lookup);
+        if (slot == null) {
+            return Optional.empty();
+        }
+        synchronized (slot.lock) {
+            Instant now = clock.instant();
+            if (slot.cooldownUntil != null && now.isBefore(slot.cooldownUntil)) {
+                return Optional.of(AuthOutcome.failed(slot.failureOutcome, slot.generation));
+            }
+            return Optional.empty();
+        }
+    }
+
+    /**
      * Re-reads the current session after a waiter resumes. MUST be used instead of a pre-wait token snapshot.
      *
      * @param lookup lookup key

@@ -96,6 +96,9 @@ public final class DefinitionNormalizer {
         if (request.get("cookies") != null) {
             out.put("cookies", request.get("cookies"));
         }
+        if (request.get("beforeSend") instanceof Map<?, ?>) {
+            out.put("beforeSend", YamlMaps.map(request.get("beforeSend")));
+        }
         out.put("replay", normalizeReplay(YamlMaps.map(request.get("replay"))));
         return out;
     }
